@@ -829,6 +829,11 @@ function renderMessage(msg) {
   `;
   msgs.appendChild(row);
   msgs.scrollTop = msgs.scrollHeight;
+  
+  // Auto-speak AI messages if TTS is enabled
+  if (msg.isAI && typeof ttsEnabled !== 'undefined' && ttsEnabled) {
+    setTimeout(() => speakText(msg.content, msg.speaker), 100);
+  }
 }
 
 function addSystemMsg(text) {
@@ -1099,15 +1104,6 @@ function stopRecording() {
 function playMessageAudio(text, speaker) {
   speakText(text, speaker);
 }
-
-// Auto-speak AI messages
-const originalRenderMessage = renderMessage;
-renderMessage = function(msg) {
-  originalRenderMessage(msg);
-  if (msg.isAI && ttsEnabled) {
-    setTimeout(() => speakText(msg.content, msg.speaker), 100);
-  }
-};
 
 // Initialize voices on page load
 window.speechSynthesis.getVoices();
