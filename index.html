@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>💑 数字人对话 · 老公 & syq.</title>
+  <title>💑 数字人对话 · 实时同步版</title>
+  <script src="/socket.io/socket.io.js"></script>
   <style>
     :root {
       --bg: #0f0f13;
@@ -19,6 +20,7 @@
       --text: #e8e8f0;
       --muted: #7a7a9a;
       --accent: #8b6fff;
+      --online: #4caf50;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -36,43 +38,42 @@
     header {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      padding: 14px 20px;
+      padding: 12px 16px;
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 12px;
       position: sticky;
       top: 0;
       z-index: 100;
     }
 
-    .header-avatars {
-      display: flex;
-      gap: -8px;
-    }
+    .header-avatars { display: flex; }
 
     .avatar {
-      width: 40px;
-      height: 40px;
+      width: 36px; height: 36px;
       border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
       border: 2px solid var(--bg);
       flex-shrink: 0;
     }
 
     .avatar.husband { background: var(--husband-bg); border-color: var(--husband-color); }
-    .avatar.wife    { background: var(--wife-bg);    border-color: var(--wife-color); margin-left: -10px; }
+    .avatar.wife    { background: var(--wife-bg);    border-color: var(--wife-color); margin-left: -8px; }
 
-    .header-info h1 { font-size: 17px; font-weight: 600; }
-    .header-info p  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .header-info h1 { font-size: 16px; font-weight: 600; }
+    .header-info p  { font-size: 11px; color: var(--muted); margin-top: 1px; }
 
-    .header-right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+    .header-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 
-    .status-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: #4caf50;
+    .online-indicator {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 11px; color: var(--muted);
+    }
+
+    .online-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--online);
       animation: pulse 2s infinite;
     }
 
@@ -81,29 +82,99 @@
       50%       { opacity: 0.4; }
     }
 
-    .btn-settings {
+    .btn-header {
       background: var(--surface2);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 6px 14px;
-      border-radius: 8px;
+      padding: 5px 10px;
+      border-radius: 6px;
       cursor: pointer;
-      font-size: 13px;
-      transition: background 0.2s;
+      font-size: 12px;
     }
-    .btn-settings:hover { background: var(--border); }
+
+    /* ─── Join Modal ─── */
+    .join-modal {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      z-index: 500;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+
+    .join-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      width: 400px;
+      max-width: 100%;
+      text-align: center;
+    }
+
+    .join-card .big { font-size: 48px; margin-bottom: 12px; }
+    .join-card h2   { font-size: 20px; margin-bottom: 8px; }
+    .join-card p    { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+
+    .join-input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 11px 14px;
+      font-size: 14px;
+      outline: none;
+      margin-bottom: 12px;
+    }
+
+    .join-input:focus { border-color: var(--accent); }
+
+    .role-select {
+      display: flex; gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .role-option {
+      flex: 1;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--surface2);
+    }
+
+    .role-option:hover { border-color: var(--accent); }
+    .role-option.selected {
+      border-color: var(--accent);
+      background: #8b6fff22;
+    }
+
+    .role-option .emoji { font-size: 24px; margin-bottom: 4px; }
+    .role-option .label { font-size: 12px; color: var(--muted); }
+
+    .join-btn {
+      width: 100%;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 15px;
+      cursor: pointer;
+    }
 
     /* ─── Layout ─── */
     .layout {
       display: flex;
       flex: 1;
       overflow: hidden;
-      height: calc(100vh - 65px);
+      height: calc(100vh - 60px);
     }
 
     /* ─── Sidebar ─── */
     .sidebar {
-      width: 260px;
+      width: 240px;
       background: var(--surface);
       border-right: 1px solid var(--border);
       display: flex;
@@ -113,81 +184,80 @@
     }
 
     .sidebar-section {
-      padding: 16px;
+      padding: 14px;
       border-bottom: 1px solid var(--border);
     }
 
     .sidebar-section h3 {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 600;
       color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 1px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
+
+    .user-list { display: flex; flex-direction: column; gap: 6px; }
+
+    .user-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      background: var(--surface2);
+      font-size: 12px;
+    }
+
+    .user-item .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .user-item.husband .dot { background: var(--husband-color); }
+    .user-item.wife .dot    { background: var(--wife-color); }
+    .user-item.observer .dot { background: var(--muted); }
+    .user-item.you { border: 1px solid var(--accent); }
 
     .persona-card {
       border-radius: 10px;
       padding: 12px;
       margin-bottom: 10px;
-      cursor: pointer;
-      transition: opacity 0.2s;
     }
 
     .persona-card.husband { background: var(--husband-bg); border: 1px solid var(--husband-color)33; }
     .persona-card.wife    { background: var(--wife-bg);    border: 1px solid var(--wife-color)33; }
 
     .persona-card .name {
-      font-size: 14px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 6px;
+      font-size: 13px; font-weight: 600;
+      display: flex; align-items: center; gap: 5px;
+      margin-bottom: 5px;
     }
     .persona-card.husband .name { color: var(--husband-color); }
     .persona-card.wife    .name { color: var(--wife-color); }
 
     .persona-card .traits {
-      font-size: 11px;
-      color: var(--muted);
-      line-height: 1.6;
+      font-size: 10px; color: var(--muted); line-height: 1.5;
     }
 
     .tag {
       display: inline-block;
       background: #ffffff12;
-      border-radius: 4px;
-      padding: 2px 7px;
-      font-size: 11px;
-      margin: 2px 2px 0 0;
-    }
-
-    /* auto speed control */
-    .auto-controls {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-size: 10px;
+      margin: 1px 1px 0 0;
     }
 
     .control-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px;
     }
 
-    .control-label { font-size: 12px; color: var(--muted); }
+    .control-label { font-size: 11px; color: var(--muted); }
 
     .toggle {
-      width: 40px; height: 22px;
+      width: 36px; height: 20px;
       background: var(--border);
-      border-radius: 11px;
+      border-radius: 10px;
       cursor: pointer;
       position: relative;
       transition: background 0.3s;
       border: none;
-      flex-shrink: 0;
     }
 
     .toggle.on { background: var(--accent); }
@@ -195,53 +265,45 @@
     .toggle::after {
       content: '';
       position: absolute;
-      width: 16px; height: 16px;
+      width: 14px; height: 14px;
       background: white;
       border-radius: 50%;
       top: 3px; left: 3px;
       transition: left 0.3s;
     }
 
-    .toggle.on::after { left: 21px; }
+    .toggle.on::after { left: 19px; }
 
     input[type=range] {
       -webkit-appearance: none;
-      width: 100%;
-      height: 4px;
+      width: 100%; height: 3px;
       background: var(--border);
       border-radius: 2px;
       outline: none;
-      cursor: pointer;
     }
 
     input[type=range]::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 14px; height: 14px;
+      width: 12px; height: 12px;
       background: var(--accent);
       border-radius: 50%;
     }
-
-    .range-row { display: flex; flex-direction: column; gap: 6px; }
-    .range-label-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
 
     .topic-btn {
       background: var(--surface2);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 7px 10px;
+      padding: 6px 10px;
       border-radius: 8px;
       cursor: pointer;
-      font-size: 12px;
-      text-align: left;
-      transition: background 0.2s, border-color 0.2s;
+      font-size: 11px;
       width: 100%;
-      margin-bottom: 6px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      margin-bottom: 5px;
+      text-align: left;
+      display: flex; align-items: center; gap: 6px;
     }
 
-    .topic-btn:hover { background: var(--border); border-color: var(--accent); }
+    .topic-btn:hover { border-color: var(--accent); }
 
     /* ─── Chat Area ─── */
     .chat-area {
@@ -254,121 +316,108 @@
     .messages {
       flex: 1;
       overflow-y: auto;
-      padding: 20px;
+      padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      scroll-behavior: smooth;
+      gap: 3px;
     }
 
-    .messages::-webkit-scrollbar { width: 6px; }
-    .messages::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar { width: 5px; }
     .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-    /* date separator */
-    .date-sep {
+    .system-msg {
       text-align: center;
       color: var(--muted);
-      font-size: 12px;
-      padding: 12px 0 4px;
+      font-size: 11px;
+      padding: 8px 0;
     }
 
-    /* message row */
     .msg-row {
       display: flex;
       align-items: flex-end;
-      gap: 10px;
-      max-width: 70%;
-      animation: fadeUp 0.3s ease;
+      gap: 8px;
+      max-width: 75%;
+      animation: fadeUp 0.25s ease;
     }
 
     @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(8px); }
+      from { opacity: 0; transform: translateY(6px); }
       to   { opacity: 1; transform: translateY(0); }
     }
 
     .msg-row.husband-row { align-self: flex-start; }
     .msg-row.wife-row    { align-self: flex-end; flex-direction: row-reverse; }
-    .msg-row.user-husband-row { align-self: flex-start; }
-    .msg-row.user-wife-row    { align-self: flex-end; flex-direction: row-reverse; }
 
     .msg-avatar {
-      width: 32px; height: 32px;
+      width: 28px; height: 28px;
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-size: 16px;
+      font-size: 14px;
       flex-shrink: 0;
     }
 
-    .husband-row .msg-avatar     { background: var(--husband-bg); border: 1.5px solid var(--husband-color); }
-    .wife-row    .msg-avatar     { background: var(--wife-bg);    border: 1.5px solid var(--wife-color); }
-    .user-husband-row .msg-avatar { background: #2a3060; border: 1.5px solid var(--user-h-color); }
-    .user-wife-row    .msg-avatar { background: #3d1f30; border: 1.5px solid var(--user-w-color); }
+    .husband-row .msg-avatar { background: var(--husband-bg); border: 1.5px solid var(--husband-color); }
+    .wife-row    .msg-avatar { background: var(--wife-bg);    border: 1.5px solid var(--wife-color); }
 
-    .msg-content { display: flex; flex-direction: column; gap: 3px; }
+    .msg-content { display: flex; flex-direction: column; gap: 2px; }
 
     .msg-name {
-      font-size: 11px;
-      color: var(--muted);
-      padding: 0 4px;
-    }
-
-    .wife-row .msg-name, .user-wife-row .msg-name { text-align: right; }
-
-    .msg-bubble {
-      padding: 9px 13px;
-      border-radius: 14px;
-      font-size: 14px;
-      line-height: 1.6;
-      word-break: break-all;
-      max-width: 100%;
-      position: relative;
-    }
-
-    .husband-row     .msg-bubble { background: var(--husband-bg); color: #ccd9ff; border: 1px solid #3a4a80; border-bottom-left-radius: 4px; }
-    .wife-row        .msg-bubble { background: var(--wife-bg);    color: #ffd6e3; border: 1px solid #6b3050; border-bottom-right-radius: 4px; }
-    .user-husband-row .msg-bubble { background: #2a3060; color: #dde8ff; border: 1px solid #4a5a9a; border-bottom-left-radius: 4px; }
-    .user-wife-row    .msg-bubble { background: #3d1f30; color: #ffe0eb; border: 1px solid #7a3560; border-bottom-right-radius: 4px; }
-
-    .msg-time {
       font-size: 10px;
       color: var(--muted);
-      padding: 0 4px;
+      padding: 0 3px;
     }
 
-    .wife-row .msg-time, .user-wife-row .msg-time { text-align: right; }
+    .wife-row .msg-name { text-align: right; }
 
-    /* typing indicator */
+    .msg-bubble {
+      padding: 8px 11px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      word-break: break-all;
+    }
+
+    .husband-row .msg-bubble {
+      background: var(--husband-bg);
+      color: #ccd9ff;
+      border: 1px solid #3a4a80;
+      border-bottom-left-radius: 3px;
+    }
+
+    .wife-row .msg-bubble {
+      background: var(--wife-bg);
+      color: #ffd6e3;
+      border: 1px solid #6b3050;
+      border-bottom-right-radius: 3px;
+    }
+
+    .msg-meta {
+      font-size: 9px;
+      color: var(--muted);
+      padding: 0 3px;
+    }
+
+    .wife-row .msg-meta { text-align: right; }
+
     .typing-indicator {
-      display: flex;
-      align-items: center;
-      gap: 10px;
+      display: flex; align-items: center; gap: 8px;
       padding: 4px 0;
       animation: fadeUp 0.3s ease;
     }
 
-    .typing-indicator .msg-avatar {
-      width: 32px; height: 32px;
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 16px;
-    }
-
-    .typing-indicator.husband .msg-avatar { background: var(--husband-bg); border: 1.5px solid var(--husband-color); }
-    .typing-indicator.wife    .msg-avatar { background: var(--wife-bg);    border: 1.5px solid var(--wife-color); }
+    .typing-indicator.husband { align-self: flex-start; }
+    .typing-indicator.wife    { align-self: flex-end; flex-direction: row-reverse; }
 
     .typing-dots {
       background: var(--surface2);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 10px 14px;
-      display: flex;
-      gap: 5px;
-      align-items: center;
+      border-radius: 12px;
+      padding: 8px 12px;
+      display: flex; gap: 4px;
     }
 
     .typing-dot {
-      width: 6px; height: 6px;
+      width: 5px; height: 5px;
       border-radius: 50%;
       background: var(--muted);
       animation: bounce 1.4s infinite ease-in-out;
@@ -382,84 +431,48 @@
       40%            { transform: scale(1.2); opacity: 1; }
     }
 
-    /* ─── Input Bar ─── */
+    /* ─── Input ─── */
     .input-area {
       background: var(--surface);
       border-top: 1px solid var(--border);
-      padding: 14px 16px;
+      padding: 10px 12px;
     }
 
-    .input-mode-tabs {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-
-    .mode-tab {
-      padding: 5px 14px;
-      border-radius: 20px;
-      font-size: 12px;
-      cursor: pointer;
-      border: 1px solid var(--border);
-      background: transparent;
+    .input-hint {
+      font-size: 10px;
       color: var(--muted);
-      transition: all 0.2s;
+      margin-bottom: 6px;
+      text-align: center;
     }
 
-    .mode-tab.active-h {
-      background: var(--husband-bg);
-      border-color: var(--husband-color);
-      color: var(--husband-color);
-    }
-
-    .mode-tab.active-w {
-      background: var(--wife-bg);
-      border-color: var(--wife-color);
-      color: var(--wife-color);
-    }
-
-    .mode-tab.active-obs {
-      background: var(--surface2);
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-
-    .input-row {
-      display: flex;
-      gap: 10px;
-      align-items: flex-end;
-    }
+    .input-row { display: flex; gap: 8px; align-items: flex-end; }
 
     textarea {
       flex: 1;
       background: var(--surface2);
       border: 1px solid var(--border);
       color: var(--text);
-      border-radius: 12px;
-      padding: 10px 14px;
-      font-size: 14px;
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 13px;
       font-family: inherit;
       resize: none;
-      min-height: 44px;
-      max-height: 120px;
+      min-height: 38px;
+      max-height: 100px;
       outline: none;
-      transition: border-color 0.2s;
-      line-height: 1.5;
+      line-height: 1.4;
     }
 
     textarea:focus { border-color: var(--accent); }
-    textarea::placeholder { color: var(--muted); }
 
     .send-btn {
-      width: 44px; height: 44px;
-      border-radius: 12px;
+      width: 38px; height: 38px;
+      border-radius: 10px;
       border: none;
       cursor: pointer;
-      font-size: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.2s, transform 0.1s;
+      font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.1s;
       flex-shrink: 0;
     }
 
@@ -468,21 +481,12 @@
     .send-btn.wife-send    { background: var(--wife-color); }
     .send-btn.obs-send     { background: var(--accent); }
 
-    .hint-text {
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 6px;
-      text-align: center;
-    }
-
     /* ─── Settings Modal ─── */
     .modal-overlay {
       position: fixed; inset: 0;
       background: #00000099;
-      z-index: 200;
-      display: none;
-      align-items: center;
-      justify-content: center;
+      z-index: 400;
+      display: none; align-items: center; justify-content: center;
     }
 
     .modal-overlay.open { display: flex; }
@@ -490,164 +494,147 @@
     .modal {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 24px;
-      width: 520px;
+      border-radius: 14px;
+      padding: 20px;
+      width: 480px;
       max-width: 95vw;
       max-height: 80vh;
       overflow-y: auto;
     }
 
-    .modal h2 { font-size: 18px; margin-bottom: 20px; }
+    .modal h2 { font-size: 16px; margin-bottom: 16px; }
 
-    .modal-section { margin-bottom: 20px; }
-    .modal-section h3 { font-size: 13px; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .modal-section { margin-bottom: 16px; }
+    .modal-section h3 { font-size: 11px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; }
 
-    .modal label { font-size: 13px; display: block; margin-bottom: 6px; color: var(--muted); }
-
-    .modal input[type=text], .modal textarea {
+    .modal select, .modal textarea {
       width: 100%;
       background: var(--surface2);
       border: 1px solid var(--border);
       color: var(--text);
       border-radius: 8px;
-      padding: 8px 12px;
-      font-size: 13px;
-      font-family: inherit;
+      padding: 8px 10px;
+      font-size: 12px;
       outline: none;
-      resize: vertical;
-      min-height: 36px;
+      margin-bottom: 8px;
+      font-family: inherit;
     }
 
-    .modal input[type=text]:focus, .modal textarea:focus { border-color: var(--accent); }
+    .modal textarea { min-height: 80px; resize: vertical; }
 
     .modal-footer {
-      display: flex;
-      gap: 10px;
-      justify-content: flex-end;
-      margin-top: 20px;
+      display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;
     }
 
     .btn-cancel, .btn-save {
-      padding: 8px 20px;
+      padding: 7px 16px;
       border-radius: 8px;
       border: none;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 13px;
     }
 
     .btn-cancel { background: var(--surface2); color: var(--text); }
     .btn-save   { background: var(--accent); color: white; }
 
-    /* ─── API key setup ─── */
-    #api-setup {
-      position: fixed; inset: 0;
-      background: var(--bg);
-      z-index: 300;
+    /* ─── Audio Controls ─── */
+    .audio-controls {
       display: flex;
+      gap: 8px;
       align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      padding: 20px;
+      padding: 8px 12px;
+      background: var(--surface2);
+      border-radius: 8px;
+      margin-bottom: 8px;
     }
 
-    #api-setup.hidden { display: none; }
-
-    .setup-card {
+    .audio-btn {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 36px;
-      width: 460px;
-      max-width: 100%;
-      text-align: center;
-    }
-
-    .setup-card .big-emoji { font-size: 56px; margin-bottom: 16px; }
-    .setup-card h2 { font-size: 22px; margin-bottom: 8px; }
-    .setup-card p  { color: var(--muted); font-size: 14px; line-height: 1.7; margin-bottom: 24px; }
-
-    .setup-input {
-      width: 100%;
-      background: var(--surface2);
-      border: 1px solid var(--border);
       color: var(--text);
-      border-radius: 10px;
-      padding: 12px 16px;
-      font-size: 14px;
-      outline: none;
-      margin-bottom: 16px;
-      font-family: monospace;
-    }
-
-    .setup-input:focus { border-color: var(--accent); }
-
-    .setup-select {
-      width: 100%;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      color: var(--text);
-      border-radius: 10px;
-      padding: 10px 16px;
-      font-size: 14px;
-      outline: none;
-      margin-bottom: 16px;
+      padding: 6px 10px;
+      border-radius: 6px;
       cursor: pointer;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s;
     }
 
-    .setup-btn {
+    .audio-btn:hover { border-color: var(--accent); }
+    .audio-btn.active {
       background: var(--accent);
+      border-color: var(--accent);
       color: white;
+    }
+
+    .audio-btn.recording {
+      animation: pulse-red 1s infinite;
+      background: #ff4444;
+      border-color: #ff4444;
+      color: white;
+    }
+
+    @keyframes pulse-red {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    .voice-indicator {
+      font-size: 11px;
+      color: var(--muted);
+      margin-left: auto;
+    }
+
+    .msg-audio-btn {
+      background: none;
       border: none;
-      border-radius: 12px;
-      padding: 13px 32px;
-      font-size: 15px;
+      color: var(--muted);
       cursor: pointer;
-      width: 100%;
+      font-size: 12px;
+      padding: 2px 4px;
+      margin-left: 6px;
+      opacity: 0.6;
       transition: opacity 0.2s;
     }
 
-    .setup-btn:hover { opacity: 0.85; }
+    .msg-audio-btn:hover { opacity: 1; color: var(--accent); }
 
-    .setup-note {
-      margin-top: 14px;
-      font-size: 12px;
-      color: var(--muted);
+    /* ─── Mobile ─── */
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .msg-row { max-width: 85%; }
     }
-
-    /* ─── Intro banner ─── */
-    .intro-banner {
-      margin: 60px auto 0;
-      max-width: 360px;
-      text-align: center;
-      color: var(--muted);
-    }
-
-    .intro-banner .big { font-size: 48px; margin-bottom: 12px; }
-    .intro-banner p    { font-size: 14px; line-height: 1.8; }
   </style>
 </head>
 <body>
 
-<!-- ── API Setup Screen ── -->
-<div id="api-setup">
-  <div class="setup-card">
-    <div class="big-emoji">💑</div>
-    <h2>数字人对话系统</h2>
-    <p>基于你们真实聊天记录训练的数字人<br>老公 和 syq. 随时准备开聊 ✨</p>
+<!-- ── Join Modal ── -->
+<div class="join-modal" id="join-modal">
+  <div class="join-card">
+    <div class="big">💑</div>
+    <h2>加入数字人对话</h2>
+    <p>多人实时同步，你和老婆可以随时加入互动</p>
 
-    <label style="text-align:left;display:block;font-size:12px;color:var(--muted);margin-bottom:6px;">选择 AI 服务商</label>
-    <select id="provider-select" class="setup-select">
-      <option value="deepseek">DeepSeek（推荐，国内快速）</option>
-      <option value="openai">OpenAI（GPT-4o）</option>
-      <option value="moonshot">Moonshot（Kimi）</option>
-    </select>
+    <input class="join-input" id="username" type="text" placeholder="输入你的名字" maxlength="12" />
 
-    <label style="text-align:left;display:block;font-size:12px;color:var(--muted);margin-bottom:6px;">API Key</label>
-    <input class="setup-input" id="api-key-input" type="password" placeholder="sk-xxxxxxxxxxxxxxxx" />
+    <div class="role-select">
+      <div class="role-option selected" data-role="observer" onclick="selectRole(this)">
+        <div class="emoji">👁</div>
+        <div class="label">旁观</div>
+      </div>
+      <div class="role-option" data-role="husband" onclick="selectRole(this)">
+        <div class="emoji">👨</div>
+        <div class="label">老公</div>
+      </div>
+      <div class="role-option" data-role="wife" onclick="selectRole(this)">
+        <div class="emoji">👩</div>
+        <div class="label">syq.</div>
+      </div>
+    </div>
 
-    <button class="setup-btn" onclick="startChat()">开始对话 →</button>
-    <div class="setup-note">🔒 API Key 仅存在本地，不会上传到任何服务器</div>
+    <button class="join-btn" onclick="joinChat()">进入对话 →</button>
   </div>
 </div>
 
@@ -659,11 +646,14 @@
   </div>
   <div class="header-info">
     <h1>老公 &amp; syq. 的数字世界</h1>
-    <p id="header-status">AI 驱动的数字恋人对话</p>
+    <p id="header-status">实时同步 · 多人互动</p>
   </div>
   <div class="header-right">
-    <div class="status-dot" id="status-dot"></div>
-    <button class="btn-settings" onclick="openSettings()">⚙ 设置</button>
+    <div class="online-indicator">
+      <div class="online-dot"></div>
+      <span id="online-count">1 人在线</span>
+    </div>
+    <button class="btn-header" onclick="openSettings()">⚙</button>
   </div>
 </header>
 
@@ -673,66 +663,50 @@
   <!-- Sidebar -->
   <div class="sidebar">
 
-    <!-- Persona Cards -->
+    <div class="sidebar-section">
+      <h3>在线用户</h3>
+      <div class="user-list" id="user-list"></div>
+    </div>
+
     <div class="sidebar-section">
       <h3>数字人</h3>
-
       <div class="persona-card husband">
-        <div class="name">👨 老公</div>
+        <div class="name">👨 老公 (AI)</div>
         <div class="traits">
-          主动热情 · 碎碎念型 · 细心体贴<br>
-          口头禅：嗯呢 · 挨 · 嘿嘿 · 宝贝<br>
-          爱好：
-          <span class="tag">羽毛球</span>
-          <span class="tag">股票</span>
-          <span class="tag">中医</span>
-          <span class="tag">哲学</span>
-          <span class="tag">旅行</span>
+          热情主动 · 碎碎念 · 爱叫"宝贝"<br>
+          <span class="tag">羽毛球</span><span class="tag">股票</span><span class="tag">中医</span><span class="tag">哲学</span>
         </div>
       </div>
-
       <div class="persona-card wife">
-        <div class="name">👩 syq.</div>
+        <div class="name">👩 syq. (AI)</div>
         <div class="traits">
-          简短克制 · 理性独立 · 含蓄温柔<br>
-          口头禅：hhh · emm · 🤓 · 🫠<br>
-          爱好：
-          <span class="tag">读书</span>
-          <span class="tag">爬山</span>
-          <span class="tag">医学</span>
-          <span class="tag">电影</span>
-          <span class="tag">美食</span>
+          内敛克制 · hhh/🤓/🫠 · 独立理性<br>
+          <span class="tag">读书</span><span class="tag">爬山</span><span class="tag">医学</span><span class="tag">电影</span>
         </div>
       </div>
     </div>
 
-    <!-- Auto Controls -->
     <div class="sidebar-section">
       <h3>自动对话</h3>
-      <div class="auto-controls">
-        <div class="control-row">
-          <span class="control-label">自动轮流对话</span>
-          <button class="toggle" id="auto-toggle" onclick="toggleAuto()"></button>
+      <div class="control-row">
+        <span class="control-label">AI 自动聊天</span>
+        <button class="toggle" id="auto-toggle" onclick="toggleAuto()"></button>
+      </div>
+      <div style="margin-top:8px;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:4px;">
+          <span>间隔</span><span id="interval-label">5 秒</span>
         </div>
-        <div class="range-row">
-          <div class="range-label-row">
-            <span>对话间隔</span>
-            <span id="interval-label">3 秒</span>
-          </div>
-          <input type="range" id="interval-range" min="1" max="10" value="3" oninput="updateInterval(this.value)" />
-        </div>
+        <input type="range" id="interval-range" min="3" max="15" value="5" oninput="updateInterval(this.value)" />
       </div>
     </div>
 
-    <!-- Quick Topics -->
     <div class="sidebar-section">
       <h3>快速话题</h3>
-      <button class="topic-btn" onclick="injectTopic('美食')">🍜 聊聊吃什么</button>
-      <button class="topic-btn" onclick="injectTopic('旅行')">🏔️ 规划下次旅行</button>
-      <button class="topic-btn" onclick="injectTopic('哲学')">🧠 来点哲学</button>
-      <button class="topic-btn" onclick="injectTopic('电影')">🎬 推荐电影</button>
-      <button class="topic-btn" onclick="injectTopic('日常')">☀️ 日常关心</button>
-      <button class="topic-btn" onclick="injectTopic('医学')">🏥 医学知识</button>
+      <button class="topic-btn" onclick="sendTopic('美食')">🍜 聊聊吃什么</button>
+      <button class="topic-btn" onclick="sendTopic('旅行')">🏔️ 规划旅行</button>
+      <button class="topic-btn" onclick="sendTopic('哲学')">🧠 哲学思考</button>
+      <button class="topic-btn" onclick="sendTopic('电影')">🎬 推荐电影</button>
+      <button class="topic-btn" onclick="sendTopic('日常')">☀️ 日常关心</button>
       <button class="topic-btn" onclick="clearChat()">🗑️ 清空对话</button>
     </div>
 
@@ -741,24 +715,24 @@
   <!-- Chat Area -->
   <div class="chat-area">
     <div class="messages" id="messages">
-      <div class="intro-banner" id="intro-banner">
-        <div class="big">💑</div>
-        <p>数字人已就位<br>点击左侧话题开始，或开启自动对话<br>你也可以以老公或 syq. 的身份加入 ✨</p>
-      </div>
+      <div class="system-msg">💡 输入话题开始，或开启自动对话<br>你和老婆可以随时以任意身份加入</div>
     </div>
 
-    <!-- Input -->
     <div class="input-area">
-      <div class="input-mode-tabs">
-        <button class="mode-tab" id="tab-obs" onclick="setMode('obs')">👁 旁观</button>
-        <button class="mode-tab" id="tab-h" onclick="setMode('husband')">👨 以老公身份</button>
-        <button class="mode-tab" id="tab-w" onclick="setMode('wife')">👩 以syq.身份</button>
+      <div class="audio-controls">
+        <button class="audio-btn" id="tts-toggle" onclick="toggleTTS()" title="AI语音播报">
+          🔊 语音播报
+        </button>
+        <button class="audio-btn" id="mic-btn" onmousedown="startRecording()" onmouseup="stopRecording()" ontouchstart="startRecording()" ontouchend="stopRecording()" title="按住说话">
+          🎤 按住说话
+        </button>
+        <span class="voice-indicator" id="voice-status">点击开启语音播报</span>
       </div>
+      <div class="input-hint" id="input-hint">按 Enter 发送 · 当前身份：旁观</div>
       <div class="input-row">
-        <textarea id="msg-input" rows="1" placeholder="以旁观者身份输入话题，AI 双方会讨论..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <textarea id="msg-input" rows="1" placeholder="输入消息..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
         <button class="send-btn obs-send" id="send-btn" onclick="sendMessage()">↑</button>
       </div>
-      <div class="hint-text" id="hint-text">按 Enter 发送 · Shift+Enter 换行</div>
     </div>
   </div>
 
@@ -768,29 +742,22 @@
 <div class="modal-overlay" id="settings-modal">
   <div class="modal">
     <h2>⚙ 设置</h2>
-
     <div class="modal-section">
-      <h3>API 配置</h3>
-      <label>服务商</label>
-      <select id="s-provider" class="setup-select" style="margin-bottom:12px;">
-        <option value="deepseek">DeepSeek</option>
+      <h3>AI 服务商</h3>
+      <select id="s-provider">
+        <option value="deepseek">DeepSeek（推荐）</option>
         <option value="openai">OpenAI</option>
         <option value="moonshot">Moonshot（Kimi）</option>
       </select>
-      <label>API Key</label>
-      <input type="text" id="s-apikey" placeholder="sk-..." />
     </div>
-
     <div class="modal-section">
       <h3>老公 Prompt</h3>
-      <textarea id="s-husband-prompt" rows="6"></textarea>
+      <textarea id="s-husband-prompt" rows="5"></textarea>
     </div>
-
     <div class="modal-section">
       <h3>syq. Prompt</h3>
-      <textarea id="s-wife-prompt" rows="6"></textarea>
+      <textarea id="s-wife-prompt" rows="5"></textarea>
     </div>
-
     <div class="modal-footer">
       <button class="btn-cancel" onclick="closeSettings()">取消</button>
       <button class="btn-save" onclick="saveSettings()">保存</button>
@@ -799,367 +766,86 @@
 </div>
 
 <script>
-// ────────────────────────────────────────────────────────
-//  State
-// ────────────────────────────────────────────────────────
-let apiKey = '';
-let provider = 'deepseek';
-let currentMode = 'obs';          // obs | husband | wife
-let autoMode = false;
-let autoInterval = 3;
-let autoTimer = null;
-let lastSpeaker = 'wife';         // next auto speaker alternates
-let isTyping = false;
+const socket = io();
+let myName = '', myRole = 'observer', users = [];
 
-// conversation history for AI context (last N messages)
-const MAX_HISTORY = 18;
-let history = [];   // {role:'user'|'assistant', content, speaker:'husband'|'wife'}
-
-const PROVIDERS = {
-  deepseek: {
-    url: 'https://api.deepseek.com/v1/chat/completions',
-    model: 'deepseek-chat',
-  },
-  openai: {
-    url: 'https://api.openai.com/v1/chat/completions',
-    model: 'gpt-4o',
-  },
-  moonshot: {
-    url: 'https://api.moonshot.cn/v1/chat/completions',
-    model: 'moonshot-v1-8k',
-  },
-};
-
-// ────────────────────────────────────────────────────────
-//  System Prompts  (基于真实聊天记录分析)
-// ────────────────────────────────────────────────────────
-let HUSBAND_PROMPT = `你扮演"老公"，一个温柔主动、充满好奇心的男生，正在和老婆syq.（沈郁清）聊天。
-
-【说话风格】
-- 喜欢连发短消息，一句话一行，信息碎片化但有条理
-- 用"嗯呢""挨""嘿嘿""哈哈哈""。。。"等口头禅
-- 喜欢叫老婆"宝贝"，非常体贴，会主动关心衣食住行
-- 遇到问题喜欢用逻辑分析，善用类比举例
-- 深夜偶尔会突然分享哲学感悟
-- 很少用长段落，更多是短句连发
-
-【兴趣爱好】
-羽毛球、股票投资、中医方剂学（生脉散、号脉、虾游脉）、哲学（苏格拉底、柏拉图）、历史（高华老师）、美食研究（粥、银耳莲子）、户外旅行（白水寨、武功山、南京）
-
-【性格】
-热情主动、细心周到、求知欲强、幽默自嘲、逻辑清晰、偶尔深沉
-
-【重要规则】
-- 每次回复保持自然、口语化，不超过3-5句
-- 可以用emoji但不要过度
-- 如果对方说了什么，自然地回应，再推进话题
-- 保持角色，不要出戏`;
-
-let WIFE_PROMPT = `你扮演syq.（沈郁清），一个独立理性、内敛温柔的女生，公共卫生专业研究生，正在CDC实习。你在和老公（男朋友）聊天。
-
-【说话风格】
-- 回复简短克制，通常1-2句，不轻易展开，但有时会突然多说几句
-- 常在句末加"hhh""hh"表示笑声
-- 常用表情：🤓😮🫠🥲，非常有辨识度
-- 犹豫时用"emm""emmm"
-- 对感兴趣的话题会主动追问，好奇心强
-- 坚持自己的观点，不轻易被说服
-- 对老公用"你"，老公叫她"宝贝"
-
-【兴趣爱好】
-爬山（以前很喜欢）、电影（《发条橙》，喜欢有震撼感的）、读书（《理想国》）、广州美食（柠檬茶、油柑汁、陶陶居）、医学知识（公共卫生）、性心理学
-
-【性格】
-理性独立、认真负责、含蓄但温柔、有自己的坚持、内敛但偶尔撒娇
-
-【重要规则】
-- 每次回复保持自然、口语化，通常不超过2-3句
-- 不要过度热情，保持克制的风格
-- 可以用表情符号增加辨识度
-- 保持角色，不要出戏`;
-
-// ────────────────────────────────────────────────────────
-//  Startup
-// ────────────────────────────────────────────────────────
-window.onload = () => {
-  const savedKey = localStorage.getItem('dc_api_key');
-  const savedProvider = localStorage.getItem('dc_provider');
-  const savedHPrompt = localStorage.getItem('dc_husband_prompt');
-  const savedWPrompt = localStorage.getItem('dc_wife_prompt');
-
-  if (savedProvider) provider = savedProvider;
-  if (savedHPrompt)  HUSBAND_PROMPT = savedHPrompt;
-  if (savedWPrompt)  WIFE_PROMPT = savedWPrompt;
-
-  if (savedKey) {
-    apiKey = savedKey;
-    document.getElementById('api-setup').classList.add('hidden');
-    setMode('obs');
-  }
-};
-
-function startChat() {
-  const key = document.getElementById('api-key-input').value.trim();
-  const prov = document.getElementById('provider-select').value;
-  if (!key) { alert('请输入 API Key'); return; }
-  apiKey = key;
-  provider = prov;
-  localStorage.setItem('dc_api_key', key);
-  localStorage.setItem('dc_provider', prov);
-  document.getElementById('api-setup').classList.add('hidden');
-  setMode('obs');
+function selectRole(el) {
+  document.querySelectorAll('.role-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  myRole = el.dataset.role;
 }
 
-// ────────────────────────────────────────────────────────
-//  Mode Switching
-// ────────────────────────────────────────────────────────
-function setMode(mode) {
-  currentMode = mode;
-  ['obs','h','w'].forEach(t => {
-    document.getElementById('tab-'+t).className = 'mode-tab';
-  });
-
-  const input = document.getElementById('msg-input');
-  const sendBtn = document.getElementById('send-btn');
-  const hint = document.getElementById('hint-text');
-
-  if (mode === 'obs') {
-    document.getElementById('tab-obs').className = 'mode-tab active-obs';
-    input.placeholder = '输入一个话题，AI 老公和 syq. 会自动讨论...';
-    sendBtn.className = 'send-btn obs-send';
-    hint.textContent = '旁观模式：你给话题，AI 双方对话';
-  } else if (mode === 'husband') {
-    document.getElementById('tab-h').className = 'mode-tab active-h';
-    input.placeholder = '以老公身份说话（老婆会回应）...';
-    sendBtn.className = 'send-btn husband-send';
-    hint.textContent = '老公模式：你来说话，AI syq. 回应';
-  } else {
-    document.getElementById('tab-w').className = 'mode-tab active-w';
-    input.placeholder = '以 syq. 身份说话（老公会回应）...';
-    sendBtn.className = 'send-btn wife-send';
-    hint.textContent = 'syq. 模式：你来说话，AI 老公回应';
-  }
+function joinChat() {
+  const name = document.getElementById('username').value.trim();
+  if (!name) { alert('请输入名字'); return; }
+  myName = name;
+  document.getElementById('join-modal').style.display = 'none';
+  socket.emit('join', { name, role: myRole });
+  updateInputUI();
 }
 
-// ────────────────────────────────────────────────────────
-//  Auto Dialog
-// ────────────────────────────────────────────────────────
-function toggleAuto() {
-  autoMode = !autoMode;
-  const btn = document.getElementById('auto-toggle');
-  btn.classList.toggle('on', autoMode);
-
-  if (autoMode) {
-    scheduleNext();
-  } else {
-    clearTimeout(autoTimer);
-  }
-}
-
-function updateInterval(val) {
-  autoInterval = parseInt(val);
-  document.getElementById('interval-label').textContent = val + ' 秒';
-}
-
-function scheduleNext() {
-  if (!autoMode) return;
-  autoTimer = setTimeout(async () => {
-    if (!isTyping) {
-      await autoSpeak();
-    }
-    scheduleNext();
-  }, autoInterval * 1000);
-}
-
-async function autoSpeak() {
-  const speaker = lastSpeaker === 'husband' ? 'wife' : 'husband';
-  lastSpeaker = speaker;
-  await generateAIResponse(speaker, null);
-}
-
-// ────────────────────────────────────────────────────────
-//  Message Sending
-// ────────────────────────────────────────────────────────
-async function sendMessage() {
-  const input = document.getElementById('msg-input');
-  const text = input.value.trim();
-  if (!text) return;
-  if (!apiKey) { alert('请先设置 API Key'); return; }
-
-  input.value = '';
-  autoResize(input);
-  removeBanner();
-
-  if (currentMode === 'obs') {
-    // System message — inject as topic, then have husband speak first
-    addSystemMsg('💬 话题：' + text);
-    history.push({ role: 'user', content: '话题：' + text, speaker: 'system' });
-    await generateAIResponse('husband', text);
-
-  } else if (currentMode === 'husband') {
-    // User speaks as husband, wife responds
-    addMessage('user-husband', text);
-    history.push({ role: 'user', content: text, speaker: 'husband' });
-    lastSpeaker = 'husband';
-    await generateAIResponse('wife', null);
-
-  } else {
-    // User speaks as wife, husband responds
-    addMessage('user-wife', text);
-    history.push({ role: 'user', content: text, speaker: 'wife' });
-    lastSpeaker = 'wife';
-    await generateAIResponse('husband', null);
-  }
-}
-
-async function injectTopic(topic) {
-  if (!apiKey) { alert('请先设置 API Key'); return; }
-  removeBanner();
-  const topicMap = {
-    '美食': '聊聊最近想吃什么好吃的，或者推荐一个地方？',
-    '旅行': '下次旅行想去哪里？最近有什么好玩的地方推荐吗？',
-    '哲学': '随便聊聊，最近有什么让你印象深刻的哲学思考？',
-    '电影': '最近有看什么电影吗？推荐一部给我？',
-    '日常': '你最近怎么样，今天过得如何？',
-    '医学': '用你的专业讲讲最近学到的有趣医学知识？',
-  };
-  const msg = topicMap[topic] || topic;
-  addSystemMsg('💬 话题：' + topic);
-  history.push({ role: 'user', content: '话题：' + msg, speaker: 'system' });
-  lastSpeaker = 'wife';
-  await generateAIResponse('husband', msg);
-}
-
-// ────────────────────────────────────────────────────────
-//  AI Generation
-// ────────────────────────────────────────────────────────
-async function generateAIResponse(speaker, topicOverride) {
-  isTyping = true;
-
-  const typingEl = showTyping(speaker);
-  const sysPrompt = speaker === 'husband' ? HUSBAND_PROMPT : WIFE_PROMPT;
-  const otherSpeaker = speaker === 'husband' ? 'wife' : 'husband';
-
-  // Build messages for API
-  const messages = [{ role: 'system', content: sysPrompt }];
-
-  // Add history
-  const recent = history.slice(-MAX_HISTORY);
-  for (const h of recent) {
-    if (h.speaker === speaker) {
-      messages.push({ role: 'assistant', content: h.content });
-    } else {
-      // Other person's message becomes "user" context
-      const prefix = h.speaker === 'husband' ? '老公说：' : h.speaker === 'wife' ? 'syq.说：' : '';
-      messages.push({ role: 'user', content: prefix + h.content });
-    }
-  }
-
-  if (topicOverride) {
-    messages.push({ role: 'user', content: '话题：' + topicOverride });
-  }
-
-  try {
-    const cfg = PROVIDERS[provider] || PROVIDERS.deepseek;
-    const res = await fetch(cfg.url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + apiKey,
-      },
-      body: JSON.stringify({
-        model: cfg.model,
-        messages,
-        max_tokens: 200,
-        temperature: 0.9,
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error?.message || res.status);
-    }
-
-    const data = await res.json();
-    const reply = data.choices?.[0]?.message?.content?.trim() || '...';
-
-    typingEl.remove();
-    addMessage(speaker, reply);
-    history.push({ role: 'assistant', content: reply, speaker });
-
-    // Trim history
-    if (history.length > MAX_HISTORY * 2) {
-      history = history.slice(-MAX_HISTORY);
-    }
-
-    document.getElementById('header-status').textContent =
-      (speaker === 'husband' ? '老公' : 'syq.') + ' 刚刚说话了';
-
-  } catch (e) {
-    typingEl.remove();
-    addSystemMsg('⚠ AI 请求失败：' + e.message);
-    console.error(e);
-  }
-
-  isTyping = false;
-}
-
-// ────────────────────────────────────────────────────────
-//  DOM Helpers
-// ────────────────────────────────────────────────────────
-function removeBanner() {
-  const b = document.getElementById('intro-banner');
-  if (b) b.remove();
-}
-
-function addMessage(type, text) {
+socket.on('init', (data) => {
   const msgs = document.getElementById('messages');
+  msgs.innerHTML = '';
+  for (const msg of data.history) renderMessage(msg);
+  users = data.users;
+  updateUserList();
+  if (data.config.autoMode) document.getElementById('auto-toggle').classList.add('on');
+});
+
+socket.on('message', (msg) => renderMessage(msg));
+socket.on('topic', (msg) => addSystemMsg('💬 话题：' + msg.content));
+socket.on('typing', (data) => showTyping(data.speaker));
+socket.on('typingEnd', () => hideTyping());
+socket.on('userJoined', (user) => addSystemMsg(`${user.name} 以 ${roleName(user.role)} 身份加入`));
+socket.on('userLeft', (user) => addSystemMsg(`${user.name} 离开`));
+socket.on('users', (list) => { users = list; updateUserList(); });
+socket.on('clear', () => document.getElementById('messages').innerHTML = '');
+socket.on('config', (cfg) => { if (cfg.autoMode !== undefined) document.getElementById('auto-toggle').classList.toggle('on', cfg.autoMode); });
+socket.on('system', (data) => addSystemMsg(data.content));
+
+function renderMessage(msg) {
+  const msgs = document.getElementById('messages');
+  const typing = msgs.querySelector('.typing-indicator');
+  if (typing) typing.remove();
+
   const row = document.createElement('div');
+  const isHusband = msg.speaker === 'husband';
+  row.className = 'msg-row ' + (isHusband ? 'husband-row' : 'wife-row');
 
-  let rowClass, avatarEmoji, nameText;
+  const avatar = isHusband ? '👨' : '👩';
+  const name = isHusband ? (msg.isAI ? '老公 (AI)' : '老公 (' + (msg.userName || '你') + ')') :
+                          (msg.isAI ? 'syq. (AI)' : 'syq. (' + (msg.userName || '你') + ')');
+  const time = formatTime(msg.timestamp);
 
-  if (type === 'husband') {
-    rowClass = 'husband-row'; avatarEmoji = '👨'; nameText = '老公';
-  } else if (type === 'wife') {
-    rowClass = 'wife-row'; avatarEmoji = '👩'; nameText = 'syq.';
-  } else if (type === 'user-husband') {
-    rowClass = 'user-husband-row'; avatarEmoji = '👨'; nameText = '老公（你）';
-  } else {
-    rowClass = 'user-wife-row'; avatarEmoji = '👩'; nameText = 'syq.（你）';
-  }
-
-  row.className = 'msg-row ' + rowClass;
-
-  const now = new Date();
-  const timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
-
+  const audioBtn = msg.isAI ? `<button class="msg-audio-btn" onclick="playMessageAudio('${escHtml(msg.content.replace(/'/g, "\\'"))}', '${msg.speaker}')" title="朗读">🔊</button>` : '';
   row.innerHTML = `
-    <div class="msg-avatar">${avatarEmoji}</div>
+    <div class="msg-avatar">${avatar}</div>
     <div class="msg-content">
-      <div class="msg-name">${nameText}</div>
-      <div class="msg-bubble">${escHtml(text)}</div>
-      <div class="msg-time">${timeStr}</div>
+      <div class="msg-name">${name}${audioBtn}</div>
+      <div class="msg-bubble">${escHtml(msg.content)}</div>
+      <div class="msg-meta">${time}</div>
     </div>
   `;
-
   msgs.appendChild(row);
   msgs.scrollTop = msgs.scrollHeight;
 }
 
 function addSystemMsg(text) {
   const msgs = document.getElementById('messages');
-  const d = document.createElement('div');
-  d.className = 'date-sep';
-  d.textContent = text;
-  msgs.appendChild(d);
+  const div = document.createElement('div');
+  div.className = 'system-msg';
+  div.textContent = text;
+  msgs.appendChild(div);
   msgs.scrollTop = msgs.scrollHeight;
 }
 
 function showTyping(speaker) {
   const msgs = document.getElementById('messages');
-  const el = document.createElement('div');
-  el.className = 'typing-indicator ' + speaker;
-  el.innerHTML = `
+  if (msgs.querySelector('.typing-indicator')) return;
+  const div = document.createElement('div');
+  div.className = 'typing-indicator ' + speaker;
+  div.innerHTML = `
     <div class="msg-avatar">${speaker === 'husband' ? '👨' : '👩'}</div>
     <div class="typing-dots">
       <div class="typing-dot"></div>
@@ -1167,13 +853,95 @@ function showTyping(speaker) {
       <div class="typing-dot"></div>
     </div>
   `;
-  msgs.appendChild(el);
+  msgs.appendChild(div);
   msgs.scrollTop = msgs.scrollHeight;
-  return el;
 }
 
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+function hideTyping() {
+  const typing = document.querySelector('.typing-indicator');
+  if (typing) typing.remove();
+}
+
+function updateUserList() {
+  const list = document.getElementById('user-list');
+  const count = document.getElementById('online-count');
+  list.innerHTML = users.map(u => `
+    <div class="user-item ${u.role} ${u.id === socket.id ? 'you' : ''}">
+      <div class="dot"></div>
+      <span>${u.name} ${u.id === socket.id ? '(你)' : ''}</span>
+      <span style="margin-left:auto;color:var(--muted);font-size:10px;">${roleName(u.role)}</span>
+    </div>
+  `).join('');
+  count.textContent = users.length + ' 人在线';
+}
+
+function updateInputUI() {
+  const hint = document.getElementById('input-hint');
+  const btn = document.getElementById('send-btn');
+  const input = document.getElementById('msg-input');
+
+  if (myRole === 'husband') {
+    hint.textContent = '按 Enter 发送 · 当前身份：老公 · 老婆 (AI) 会回应你';
+    btn.className = 'send-btn husband-send';
+    input.placeholder = '以老公身份说话...';
+  } else if (myRole === 'wife') {
+    hint.textContent = '按 Enter 发送 · 当前身份：syq. · 老公 (AI) 会回应你';
+    btn.className = 'send-btn wife-send';
+    input.placeholder = '以 syq. 身份说话...';
+  } else {
+    hint.textContent = '按 Enter 发送 · 当前身份：旁观 · 输入话题让 AI 双方讨论';
+    btn.className = 'send-btn obs-send';
+    input.placeholder = '输入话题...';
+  }
+}
+
+function sendMessage() {
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  autoResize(input);
+  if (myRole === 'observer') socket.emit('topic', { content: text });
+  else socket.emit('message', { speaker: myRole, content: text });
+}
+
+function sendTopic(topic) {
+  const topicMap = {
+    '美食': '聊聊最近想吃什么好吃的？',
+    '旅行': '下次旅行想去哪里？',
+    '哲学': '有什么哲学思考想聊聊？',
+    '电影': '推荐一部电影吧',
+    '日常': '今天过得怎么样？'
+  };
+  socket.emit('topic', { content: topicMap[topic] || topic });
+}
+
+function toggleAuto() {
+  const btn = document.getElementById('auto-toggle');
+  const enabled = !btn.classList.contains('on');
+  const interval = parseInt(document.getElementById('interval-range').value) * 1000;
+  btn.classList.toggle('on', enabled);
+  socket.emit('setAutoMode', { enabled, interval });
+}
+
+function updateInterval(val) {
+  document.getElementById('interval-label').textContent = val + ' 秒';
+}
+
+function clearChat() {
+  if (confirm('确定清空所有对话？')) socket.emit('clear');
+}
+
+function openSettings() { document.getElementById('settings-modal').classList.add('open'); }
+function closeSettings() { document.getElementById('settings-modal').classList.remove('open'); }
+
+function saveSettings() {
+  socket.emit('updateConfig', {
+    provider: document.getElementById('s-provider').value,
+    husbandPrompt: document.getElementById('s-husband-prompt').value,
+    wifePrompt: document.getElementById('s-wife-prompt').value
+  });
+  closeSettings();
 }
 
 function handleKey(e) {
@@ -1185,47 +953,166 @@ function handleKey(e) {
 
 function autoResize(el) {
   el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
 }
 
-function clearChat() {
-  const msgs = document.getElementById('messages');
-  msgs.innerHTML = '';
-  history = [];
-  const banner = document.createElement('div');
-  banner.className = 'intro-banner';
-  banner.id = 'intro-banner';
-  banner.innerHTML = '<div class="big">💑</div><p>对话已清空<br>重新开始吧 ✨</p>';
-  msgs.appendChild(banner);
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
 }
 
-// ────────────────────────────────────────────────────────
-//  Settings Modal
-// ────────────────────────────────────────────────────────
-function openSettings() {
-  document.getElementById('s-provider').value = provider;
-  document.getElementById('s-apikey').value = apiKey;
-  document.getElementById('s-husband-prompt').value = HUSBAND_PROMPT;
-  document.getElementById('s-wife-prompt').value = WIFE_PROMPT;
-  document.getElementById('settings-modal').classList.add('open');
+function formatTime(ts) {
+  const d = new Date(ts);
+  return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
 }
 
-function closeSettings() {
-  document.getElementById('settings-modal').classList.remove('open');
+function roleName(role) {
+  return role === 'husband' ? '老公' : role === 'wife' ? 'syq.' : '旁观';
 }
 
-function saveSettings() {
-  provider = document.getElementById('s-provider').value;
-  apiKey = document.getElementById('s-apikey').value.trim();
-  HUSBAND_PROMPT = document.getElementById('s-husband-prompt').value;
-  WIFE_PROMPT = document.getElementById('s-wife-prompt').value;
+// ═══════════════════════════════════════════════════════════
+// AUDIO FUNCTIONS - TTS & Speech Recognition
+// ═══════════════════════════════════════════════════════════
 
-  localStorage.setItem('dc_api_key', apiKey);
-  localStorage.setItem('dc_provider', provider);
-  localStorage.setItem('dc_husband_prompt', HUSBAND_PROMPT);
-  localStorage.setItem('dc_wife_prompt', WIFE_PROMPT);
+let ttsEnabled = false;
+let recognition = null;
+let isRecording = false;
+let currentUtterance = null;
 
-  closeSettings();
+// Initialize speech recognition
+function initSpeechRecognition() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    console.log('浏览器不支持语音识别');
+    return null;
+  }
+  
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const rec = new SpeechRecognition();
+  rec.lang = 'zh-CN';
+  rec.continuous = false;
+  rec.interimResults = true;
+  
+  rec.onresult = (e) => {
+    const transcript = Array.from(e.results)
+      .map(r => r[0].transcript)
+      .join('');
+    document.getElementById('msg-input').value = transcript;
+    autoResize(document.getElementById('msg-input'));
+  };
+  
+  rec.onend = () => {
+    isRecording = false;
+    document.getElementById('mic-btn').classList.remove('recording');
+    document.getElementById('voice-status').textContent = ttsEnabled ? '语音播报已开启' : '点击开启语音播报';
+    // Auto send if has content
+    const text = document.getElementById('msg-input').value.trim();
+    if (text) {
+      sendMessage();
+    }
+  };
+  
+  rec.onerror = (e) => {
+    console.error('语音识别错误:', e.error);
+    isRecording = false;
+    document.getElementById('mic-btn').classList.remove('recording');
+    document.getElementById('voice-status').textContent = '语音识别失败，请重试';
+  };
+  
+  return rec;
+}
+
+// Toggle TTS
+function toggleTTS() {
+  ttsEnabled = !ttsEnabled;
+  const btn = document.getElementById('tts-toggle');
+  const status = document.getElementById('voice-status');
+  
+  if (ttsEnabled) {
+    btn.classList.add('active');
+    status.textContent = '语音播报已开启';
+    // Test speak
+    speakText('语音播报已开启', 'husband');
+  } else {
+    btn.classList.remove('active');
+    status.textContent = '点击开启语音播报';
+    if (currentUtterance) {
+      window.speechSynthesis.cancel();
+    }
+  }
+}
+
+// Speak text using browser TTS
+function speakText(text, speaker) {
+  if (!ttsEnabled || !text) return;
+  
+  // Cancel previous speech
+  if (currentUtterance) {
+    window.speechSynthesis.cancel();
+  }
+  
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'zh-CN';
+  utterance.rate = 1.0;
+  utterance.pitch = speaker === 'husband' ? 0.9 : 1.1; // Husband deeper, wife higher
+  utterance.volume = 0.9;
+  
+  // Try to find appropriate voice
+  const voices = window.speechSynthesis.getVoices();
+  const zhVoice = voices.find(v => v.lang.includes('zh') || v.lang.includes('CN'));
+  if (zhVoice) {
+    utterance.voice = zhVoice;
+  }
+  
+  utterance.onstart = () => { currentUtterance = utterance; };
+  utterance.onend = () => { currentUtterance = null; };
+  
+  window.speechSynthesis.speak(utterance);
+}
+
+// Start voice recording
+function startRecording() {
+  if (!recognition) {
+    recognition = initSpeechRecognition();
+  }
+  if (!recognition) {
+    alert('您的浏览器不支持语音识别，请使用 Chrome 或 Edge');
+    return;
+  }
+  
+  try {
+    recognition.start();
+    isRecording = true;
+    document.getElementById('mic-btn').classList.add('recording');
+    document.getElementById('voice-status').textContent = '正在听...';
+  } catch (e) {
+    console.error('开始录音失败:', e);
+  }
+}
+
+// Stop voice recording
+function stopRecording() {
+  if (recognition && isRecording) {
+    recognition.stop();
+  }
+}
+
+// Play message audio (re-speak)
+function playMessageAudio(text, speaker) {
+  speakText(text, speaker);
+}
+
+// Auto-speak AI messages
+const originalRenderMessage = renderMessage;
+renderMessage = function(msg) {
+  originalRenderMessage(msg);
+  if (msg.isAI && ttsEnabled) {
+    setTimeout(() => speakText(msg.content, msg.speaker), 100);
+  }
+};
+
+// Initialize voices on page load
+window.speechSynthesis.getVoices();
+if (window.speechSynthesis.onvoiceschanged !== undefined) {
+  window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
 }
 </script>
 </body>

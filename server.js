@@ -18,7 +18,7 @@ const io = new Server(server, {
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, '.')));
 
 // ==================== CONFIGURATION ====================
 const MAX_HISTORY = 30;
@@ -344,7 +344,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // ==================== START ====================
