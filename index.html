@@ -1123,7 +1123,11 @@ async function speakText(text, speaker, force = false) {
     console.log('[TTS] 调用 API:', apiUrl);
     
     // 调用 GPT-SoVITS API
-    var response = await fetch(apiUrl);
+    var response = await fetch(apiUrl, {
+      headers: {
+        'ngrok-skip-browser-warning': '1'
+      }
+    });
     
     console.log('[TTS] API 响应状态:', response.status);
     
@@ -1158,7 +1162,9 @@ async function speakText(text, speaker, force = false) {
     
   } catch (error) {
     console.error('[TTS] 语音合成失败:', error);
+    console.error('[TTS] 错误详情:', error.message, error.stack);
     // 如果 GPT-SoVITS 不可用，回退到浏览器 TTS
+    console.log('[TTS] 回退到浏览器 TTS');
     fallbackSpeakText(text, speaker);
   }
 }
