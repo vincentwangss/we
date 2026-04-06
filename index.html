@@ -997,6 +997,10 @@ var currentAudio = null;
 function translateTextForSpeech(text) {
   if (!text) return text;
   
+  // 先移除替换字符（乱码）和零宽字符
+  text = text.replace(/\uFFFD/g, '');  // 移除 � 替换字符
+  text = text.replace(/[\u200B-\u200D\uFEFF]/g, '');  // 移除零宽字符
+  
   var translations = [
     // 笑声
     { pattern: /h{4,}/gi, replacement: '哈哈哈哈' },
