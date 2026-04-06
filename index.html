@@ -1314,16 +1314,16 @@ async function speakSingleSegment(text, speaker) {
   
   var params = {
     text: text,
-    text_lang: 'zh',
-    ref_audio_path: config.refer_wav_path,
+    text_language: 'zh',
+    refer_wav_path: config.refer_wav_path,
     prompt_text: config.prompt_text,
-    prompt_lang: config.prompt_language || 'zh'
+    prompt_language: config.prompt_language || 'zh'
   };
   
   console.log('[TTS] API 参数:', params);
   
   try {
-    var apiUrl = `${GPT_SOVITS_API}/tts?${new URLSearchParams(params)}`;
+    var apiUrl = `${GPT_SOVITS_API}/?${new URLSearchParams(params)}`;
     console.log('[TTS] 调用 API:', apiUrl);
     
     // 调用 GPT-SoVITS API
