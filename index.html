@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>💑 数字人对话 · 实时同步版</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>💑 数字人对话 · 实时同步版 v20250406</title>
+  <script>console.log('File version: 20250406-2037');</script>
   <script src="/socket.io/socket.io.js"></script>
   <style>
     :root {
@@ -766,8 +770,13 @@
 </div>
 
 <script>
-const socket = io();
-let myName = '', myRole = 'observer', users = [];
+// 本地测试时模拟 socket
+var socket = typeof io !== 'undefined' ? io() : {
+  on: function() {},
+  emit: function() {},
+  connected: false
+};
+var myName = '', myRole = 'observer', users = [];
 
 function selectRole(el) {
   document.querySelectorAll('.role-option').forEach(o => o.classList.remove('selected'));
@@ -975,13 +984,30 @@ function roleName(role) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// AUDIO FUNCTIONS - TTS & Speech Recognition
+// AUDIO FUNCTIONS - GPT-SoVITS TTS & Speech Recognition
 // ═══════════════════════════════════════════════════════════
 
-let ttsEnabled = false;
-let recognition = null;
-let isRecording = false;
-let currentUtterance = null;
+var ttsEnabled = false;
+var recognition = null;
+var isRecording = false;
+var currentAudio = null;
+
+// GPT-SoVITS API 配置
+var GPT_SOVITS_API = 'https://salena-plasterlike-effie.ngrok-free.dev';
+
+// 参考音频配置（根据你的训练数据填写）
+var VOICE_CONFIG = {
+  husband: {
+    refer_wav_path: 'C:/Users/wang/Documents/录音/list/录音 (2).wav_0000041600_0000239680.wav',  // 老公参考音频
+    prompt_text: '住建部今日通报全国城镇老旧小区改造年度任务提前完成。',  // 参考音频对应的文本
+    prompt_language: 'zh'
+  },
+  wife: {
+    refer_wav_path: '',  // 老婆参考音频（待配置）
+    prompt_text: '',     // 参考音频对应的文本（待配置）
+    prompt_language: 'zh'
+  }
+};
 
 // Initialize speech recognition
 function initSpeechRecognition() {
@@ -1008,7 +1034,6 @@ function initSpeechRecognition() {
     isRecording = false;
     document.getElementById('mic-btn').classList.remove('recording');
     document.getElementById('voice-status').textContent = ttsEnabled ? '语音播报已开启' : '点击开启语音播报';
-    // Auto send if has content
     const text = document.getElementById('msg-input').value.trim();
     if (text) {
       sendMessage();
@@ -1028,47 +1053,131 @@ function initSpeechRecognition() {
 // Toggle TTS
 function toggleTTS() {
   ttsEnabled = !ttsEnabled;
+  console.log('[TTS] 语音播报开关:', ttsEnabled);
+  
   const btn = document.getElementById('tts-toggle');
   const status = document.getElementById('voice-status');
   
   if (ttsEnabled) {
     btn.classList.add('active');
     status.textContent = '语音播报已开启';
-    // Test speak
+    console.log('[TTS] 准备测试语音...');
     speakText('语音播报已开启', 'husband');
   } else {
     btn.classList.remove('active');
     status.textContent = '点击开启语音播报';
-    if (currentUtterance) {
-      window.speechSynthesis.cancel();
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
     }
   }
 }
 
-// Speak text using browser TTS
-function speakText(text, speaker) {
-  if (!ttsEnabled || !text) return;
+// Speak text using GPT-SoVITS API
+async function speakText(text, speaker, force = false) {
+  console.log(`[TTS] 调用 speakText: ttsEnabled=${ttsEnabled}, text=${text?.substring(0, 30)}, speaker=${speaker}`);
   
-  // Cancel previous speech
-  if (currentUtterance) {
-    window.speechSynthesis.cancel();
+  if (!force && !ttsEnabled) {
+    console.log('[TTS] 语音播报未开启，跳过 (加 force=true 可强制播放)');
+    return;
   }
+  if (!text) {
+    console.log('[TTS] 文本为空，跳过');
+    return;
+  }
+  
+  console.log(`[TTS] 开始语音合成: speaker=${speaker}, text=${text.substring(0, 30)}...`);
+  
+  // Cancel previous audio
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+  }
+  
+  // 如果该角色未配置参考音频，使用 husband 的配置（默认男声）
+  var config = VOICE_CONFIG[speaker];
+  if (!config || !config.refer_wav_path) {
+    console.log(`[TTS] ${speaker} 未配置声音，使用 husband 的声音`);
+    config = VOICE_CONFIG['husband'];
+  }
+  
+  // 检查是否仍然没有配置
+  if (!config || !config.refer_wav_path) {
+    console.error('[TTS] 没有可用的参考音频配置');
+    fallbackSpeakText(text, speaker);
+    return;
+  }
+  
+  var params = {
+    text: text,
+    text_lang: 'zh',
+    ref_audio_path: config.refer_wav_path,
+    prompt_text: config.prompt_text,
+    prompt_lang: config.prompt_language || 'zh'
+  };
+  
+  console.log('[TTS] API 参数:', params);
+  
+  try {
+    var apiUrl = `${GPT_SOVITS_API}/tts?${new URLSearchParams(params)}`;
+    console.log('[TTS] 调用 API:', apiUrl);
+    
+    // 调用 GPT-SoVITS API
+    var response = await fetch(apiUrl);
+    
+    console.log('[TTS] API 响应状态:', response.status);
+    
+    if (!response.ok) {
+      throw new Error(`API 错误: ${response.status}`);
+    }
+    
+    // 获取音频数据
+    var audioBlob = await response.blob();
+    console.log('[TTS] 收到音频数据:', audioBlob.size, 'bytes');
+    
+    var audioUrl = URL.createObjectURL(audioBlob);
+    console.log('[TTS] 音频 URL 创建成功:', audioUrl);
+    
+    // 播放音频
+    currentAudio = new Audio(audioUrl);
+    console.log('[TTS] Audio 对象创建成功');
+    
+    currentAudio.onended = () => {
+      console.log('[TTS] 音频播放结束');
+      currentAudio = null;
+      URL.revokeObjectURL(audioUrl);
+    };
+    currentAudio.onerror = (e) => {
+      console.error('[TTS] 音频播放失败:', e);
+      currentAudio = null;
+    };
+    
+    console.log('[TTS] 准备播放...');
+    await currentAudio.play();
+    console.log('[TTS] 开始播放音频');
+    
+  } catch (error) {
+    console.error('[TTS] 语音合成失败:', error);
+    // 如果 GPT-SoVITS 不可用，回退到浏览器 TTS
+    fallbackSpeakText(text, speaker);
+  }
+}
+
+// 浏览器 TTS 回退
+function fallbackSpeakText(text, speaker) {
+  if (!ttsEnabled || !text) return;
   
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'zh-CN';
   utterance.rate = 1.0;
-  utterance.pitch = speaker === 'husband' ? 0.9 : 1.1; // Husband deeper, wife higher
+  utterance.pitch = speaker === 'husband' ? 0.9 : 1.1;
   utterance.volume = 0.9;
   
-  // Try to find appropriate voice
   const voices = window.speechSynthesis.getVoices();
   const zhVoice = voices.find(v => v.lang.includes('zh') || v.lang.includes('CN'));
   if (zhVoice) {
     utterance.voice = zhVoice;
   }
-  
-  utterance.onstart = () => { currentUtterance = utterance; };
-  utterance.onend = () => { currentUtterance = null; };
   
   window.speechSynthesis.speak(utterance);
 }
@@ -1103,6 +1212,12 @@ function stopRecording() {
 // Play message audio (re-speak)
 function playMessageAudio(text, speaker) {
   speakText(text, speaker);
+}
+
+// 配置语音参数
+function configureVoice(speaker, referWavPath, promptText) {
+  VOICE_CONFIG[speaker].refer_wav_path = referWavPath;
+  VOICE_CONFIG[speaker].prompt_text = promptText;
 }
 
 // Initialize voices on page load

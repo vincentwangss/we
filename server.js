@@ -3,6 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const fetch = require('node-fetch');
 require('dotenv').config();
 
@@ -18,7 +19,12 @@ const io = new Server(server, {
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '.')));
+// 静态文件（排除 index.html）
+app.use(express.static(path.join(__dirname, '.'), {
+  index: false,
+  etag: false,
+  lastModified: false
+}));
 
 // ==================== CONFIGURATION ====================
 const MAX_HISTORY = 30;
@@ -341,6 +347,22 @@ app.get('/api/health', (req, res) => {
     history: chatHistory.length,
     autoMode: aiConfig.autoMode
   });
+});
+
+// 动态读取 index.html，确保总是最新内容
+app.get('/', (req, res) => {
+  const indexPath = path.join(__dirname, 'index.html');
+  let content = fs.readFileSync(indexPath, 'utf-8');
+  
+  // 添加版本号防止缓存
+  const version = Date.now();
+  content = content.replace(/<script>/g, `<script>\nconsole.log('Version: ${version}');`);
+  
+  res.setHeader('Content-Type', 'text/html');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.send(content);
 });
 
 app.get('*', (req, res) => {
