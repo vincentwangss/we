@@ -1149,20 +1149,15 @@ function translateTextForSpeech(text) {
 var GPT_SOVITS_API = 'https://salena-plasterlike-effie.ngrok-free.dev';
 
 // 参考音频配置（根据你的训练数据填写）
-// 本地开发使用绝对路径，生产环境使用相对路径
-var isLocal = window.location.hostname === 'localhost' || window.location.protocol === 'file:';
+// GPT-SoVITS API 始终在本地运行，所以使用本地绝对路径
 var VOICE_CONFIG = {
   husband: {
-    refer_wav_path: isLocal 
-      ? 'C:/Users/wang/Documents/录音/list/录音 (2).wav_0000041600_0000239680.wav'
-      : 'audio/husband.wav',
+    refer_wav_path: 'C:/Users/wang/Documents/录音/list/录音 (2).wav_0000041600_0000239680.wav',
     prompt_text: '住建部今日通报全国城镇老旧小区改造年度任务提前完成。',
     prompt_language: 'zh'
   },
   wife: {
-    refer_wav_path: isLocal
-      ? 'D:/project/data/voice/cleanvoice/sub/vocal_01.m4a.reformatted.wav_10.wav_0000002880_0000144960.wav'
-      : 'audio/wife.wav',
+    refer_wav_path: 'D:/project/data/voice/cleanvoice/sub/vocal_01.m4a.reformatted.wav_10.wav_0000002880_0000144960.wav',
     prompt_text: '今天天气真好，我们一起去公园散步吧。',
     prompt_language: 'zh'
   }
