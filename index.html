@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>💑 数字人对话 · 老公 & syq.</title>
+  <style>
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a22;
+      --surface2: #22222e;
+      --border: #2e2e3e;
+      --husband-color: #6c8fff;
+      --husband-bg: #1a2040;
+      --wife-color: #ff8fab;
+      --wife-bg: #2e1a28;
+      --user-h-color: #a8c4ff;
+      --user-w-color: #ffb3c8;
+      --text: #e8e8f0;
+      --muted: #7a7a9a;
+      --accent: #8b6fff;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── Header ─── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-avatars {
+      display: flex;
+      gap: -8px;
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      border: 2px solid var(--bg);
+      flex-shrink: 0;
+    }
+
+    .avatar.husband { background: var(--husband-bg); border-color: var(--husband-color); }
+    .avatar.wife    { background: var(--wife-bg);    border-color: var(--wife-color); margin-left: -10px; }
+
+    .header-info h1 { font-size: 17px; font-weight: 600; }
+    .header-info p  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    .header-right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #4caf50;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    .btn-settings {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.2s;
+    }
+    .btn-settings:hover { background: var(--border); }
+
+    /* ─── Layout ─── */
+    .layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      height: calc(100vh - 65px);
+    }
+
+    /* ─── Sidebar ─── */
+    .sidebar {
+      width: 260px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .sidebar-section {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-section h3 {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+
+    .persona-card {
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .persona-card.husband { background: var(--husband-bg); border: 1px solid var(--husband-color)33; }
+    .persona-card.wife    { background: var(--wife-bg);    border: 1px solid var(--wife-color)33; }
+
+    .persona-card .name {
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .persona-card.husband .name { color: var(--husband-color); }
+    .persona-card.wife    .name { color: var(--wife-color); }
+
+    .persona-card .traits {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .tag {
+      display: inline-block;
+      background: #ffffff12;
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 11px;
+      margin: 2px 2px 0 0;
+    }
+
+    /* auto speed control */
+    .auto-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .control-label { font-size: 12px; color: var(--muted); }
+
+    .toggle {
+      width: 40px; height: 22px;
+      background: var(--border);
+      border-radius: 11px;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.3s;
+      border: none;
+      flex-shrink: 0;
+    }
+
+    .toggle.on { background: var(--accent); }
+
+    .toggle::after {
+      content: '';
+      position: absolute;
+      width: 16px; height: 16px;
+      background: white;
+      border-radius: 50%;
+      top: 3px; left: 3px;
+      transition: left 0.3s;
+    }
+
+    .toggle.on::after { left: 21px; }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    .range-row { display: flex; flex-direction: column; gap: 6px; }
+    .range-label-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+
+    .topic-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 7px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      text-align: left;
+      transition: background 0.2s, border-color 0.2s;
+      width: 100%;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .topic-btn:hover { background: var(--border); border-color: var(--accent); }
+
+    /* ─── Chat Area ─── */
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      scroll-behavior: smooth;
+    }
+
+    .messages::-webkit-scrollbar { width: 6px; }
+    .messages::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* date separator */
+    .date-sep {
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      padding: 12px 0 4px;
+    }
+
+    /* message row */
+    .msg-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      max-width: 70%;
+      animation: fadeUp 0.3s ease;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg-row.husband-row { align-self: flex-start; }
+    .msg-row.wife-row    { align-self: flex-end; flex-direction: row-reverse; }
+    .msg-row.user-husband-row { align-self: flex-start; }
+    .msg-row.user-wife-row    { align-self: flex-end; flex-direction: row-reverse; }
+
+    .msg-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .husband-row .msg-avatar     { background: var(--husband-bg); border: 1.5px solid var(--husband-color); }
+    .wife-row    .msg-avatar     { background: var(--wife-bg);    border: 1.5px solid var(--wife-color); }
+    .user-husband-row .msg-avatar { background: #2a3060; border: 1.5px solid var(--user-h-color); }
+    .user-wife-row    .msg-avatar { background: #3d1f30; border: 1.5px solid var(--user-w-color); }
+
+    .msg-content { display: flex; flex-direction: column; gap: 3px; }
+
+    .msg-name {
+      font-size: 11px;
+      color: var(--muted);
+      padding: 0 4px;
+    }
+
+    .wife-row .msg-name, .user-wife-row .msg-name { text-align: right; }
+
+    .msg-bubble {
+      padding: 9px 13px;
+      border-radius: 14px;
+      font-size: 14px;
+      line-height: 1.6;
+      word-break: break-all;
+      max-width: 100%;
+      position: relative;
+    }
+
+    .husband-row     .msg-bubble { background: var(--husband-bg); color: #ccd9ff; border: 1px solid #3a4a80; border-bottom-left-radius: 4px; }
+    .wife-row        .msg-bubble { background: var(--wife-bg);    color: #ffd6e3; border: 1px solid #6b3050; border-bottom-right-radius: 4px; }
+    .user-husband-row .msg-bubble { background: #2a3060; color: #dde8ff; border: 1px solid #4a5a9a; border-bottom-left-radius: 4px; }
+    .user-wife-row    .msg-bubble { background: #3d1f30; color: #ffe0eb; border: 1px solid #7a3560; border-bottom-right-radius: 4px; }
+
+    .msg-time {
+      font-size: 10px;
+      color: var(--muted);
+      padding: 0 4px;
+    }
+
+    .wife-row .msg-time, .user-wife-row .msg-time { text-align: right; }
+
+    /* typing indicator */
+    .typing-indicator {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 0;
+      animation: fadeUp 0.3s ease;
+    }
+
+    .typing-indicator .msg-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+
+    .typing-indicator.husband .msg-avatar { background: var(--husband-bg); border: 1.5px solid var(--husband-color); }
+    .typing-indicator.wife    .msg-avatar { background: var(--wife-bg);    border: 1.5px solid var(--wife-color); }
+
+    .typing-dots {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 14px;
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+
+    .typing-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+      animation: bounce 1.4s infinite ease-in-out;
+    }
+
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+      40%            { transform: scale(1.2); opacity: 1; }
+    }
+
+    /* ─── Input Bar ─── */
+    .input-area {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 14px 16px;
+    }
+
+    .input-mode-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .mode-tab {
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+
+    .mode-tab.active-h {
+      background: var(--husband-bg);
+      border-color: var(--husband-color);
+      color: var(--husband-color);
+    }
+
+    .mode-tab.active-w {
+      background: var(--wife-bg);
+      border-color: var(--wife-color);
+      color: var(--wife-color);
+    }
+
+    .mode-tab.active-obs {
+      background: var(--surface2);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    textarea {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-family: inherit;
+      resize: none;
+      min-height: 44px;
+      max-height: 120px;
+      outline: none;
+      transition: border-color 0.2s;
+      line-height: 1.5;
+    }
+
+    textarea:focus { border-color: var(--accent); }
+    textarea::placeholder { color: var(--muted); }
+
+    .send-btn {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, transform 0.1s;
+      flex-shrink: 0;
+    }
+
+    .send-btn:active { transform: scale(0.95); }
+    .send-btn.husband-send { background: var(--husband-color); }
+    .send-btn.wife-send    { background: var(--wife-color); }
+    .send-btn.obs-send     { background: var(--accent); }
+
+    .hint-text {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 6px;
+      text-align: center;
+    }
+
+    /* ─── Settings Modal ─── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: #00000099;
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      width: 520px;
+      max-width: 95vw;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .modal h2 { font-size: 18px; margin-bottom: 20px; }
+
+    .modal-section { margin-bottom: 20px; }
+    .modal-section h3 { font-size: 13px; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .modal label { font-size: 13px; display: block; margin-bottom: 6px; color: var(--muted); }
+
+    .modal input[type=text], .modal textarea {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      resize: vertical;
+      min-height: 36px;
+    }
+
+    .modal input[type=text]:focus, .modal textarea:focus { border-color: var(--accent); }
+
+    .modal-footer {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    .btn-cancel, .btn-save {
+      padding: 8px 20px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .btn-cancel { background: var(--surface2); color: var(--text); }
+    .btn-save   { background: var(--accent); color: white; }
+
+    /* ─── API key setup ─── */
+    #api-setup {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      z-index: 300;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      padding: 20px;
+    }
+
+    #api-setup.hidden { display: none; }
+
+    .setup-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px;
+      width: 460px;
+      max-width: 100%;
+      text-align: center;
+    }
+
+    .setup-card .big-emoji { font-size: 56px; margin-bottom: 16px; }
+    .setup-card h2 { font-size: 22px; margin-bottom: 8px; }
+    .setup-card p  { color: var(--muted); font-size: 14px; line-height: 1.7; margin-bottom: 24px; }
+
+    .setup-input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 14px;
+      outline: none;
+      margin-bottom: 16px;
+      font-family: monospace;
+    }
+
+    .setup-input:focus { border-color: var(--accent); }
+
+    .setup-select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: 14px;
+      outline: none;
+      margin-bottom: 16px;
+      cursor: pointer;
+    }
+
+    .setup-btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 13px 32px;
+      font-size: 15px;
+      cursor: pointer;
+      width: 100%;
+      transition: opacity 0.2s;
+    }
+
+    .setup-btn:hover { opacity: 0.85; }
+
+    .setup-note {
+      margin-top: 14px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* ─── Intro banner ─── */
+    .intro-banner {
+      margin: 60px auto 0;
+      max-width: 360px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .intro-banner .big { font-size: 48px; margin-bottom: 12px; }
+    .intro-banner p    { font-size: 14px; line-height: 1.8; }
+  </style>
+</head>
+<body>
+
+<!-- ── API Setup Screen ── -->
+<div id="api-setup">
+  <div class="setup-card">
+    <div class="big-emoji">💑</div>
+    <h2>数字人对话系统</h2>
+    <p>基于你们真实聊天记录训练的数字人<br>老公 和 syq. 随时准备开聊 ✨</p>
+
+    <label style="text-align:left;display:block;font-size:12px;color:var(--muted);margin-bottom:6px;">选择 AI 服务商</label>
+    <select id="provider-select" class="setup-select">
+      <option value="deepseek">DeepSeek（推荐，国内快速）</option>
+      <option value="openai">OpenAI（GPT-4o）</option>
+      <option value="moonshot">Moonshot（Kimi）</option>
+    </select>
+
+    <label style="text-align:left;display:block;font-size:12px;color:var(--muted);margin-bottom:6px;">API Key</label>
+    <input class="setup-input" id="api-key-input" type="password" placeholder="sk-xxxxxxxxxxxxxxxx" />
+
+    <button class="setup-btn" onclick="startChat()">开始对话 →</button>
+    <div class="setup-note">🔒 API Key 仅存在本地，不会上传到任何服务器</div>
+  </div>
+</div>
+
+<!-- ── Header ── -->
+<header>
+  <div class="header-avatars">
+    <div class="avatar husband">👨</div>
+    <div class="avatar wife">👩</div>
+  </div>
+  <div class="header-info">
+    <h1>老公 &amp; syq. 的数字世界</h1>
+    <p id="header-status">AI 驱动的数字恋人对话</p>
+  </div>
+  <div class="header-right">
+    <div class="status-dot" id="status-dot"></div>
+    <button class="btn-settings" onclick="openSettings()">⚙ 设置</button>
+  </div>
+</header>
+
+<!-- ── Layout ── -->
+<div class="layout">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+
+    <!-- Persona Cards -->
+    <div class="sidebar-section">
+      <h3>数字人</h3>
+
+      <div class="persona-card husband">
+        <div class="name">👨 老公</div>
+        <div class="traits">
+          主动热情 · 碎碎念型 · 细心体贴<br>
+          口头禅：嗯呢 · 挨 · 嘿嘿 · 宝贝<br>
+          爱好：
+          <span class="tag">羽毛球</span>
+          <span class="tag">股票</span>
+          <span class="tag">中医</span>
+          <span class="tag">哲学</span>
+          <span class="tag">旅行</span>
+        </div>
+      </div>
+
+      <div class="persona-card wife">
+        <div class="name">👩 syq.</div>
+        <div class="traits">
+          简短克制 · 理性独立 · 含蓄温柔<br>
+          口头禅：hhh · emm · 🤓 · 🫠<br>
+          爱好：
+          <span class="tag">读书</span>
+          <span class="tag">爬山</span>
+          <span class="tag">医学</span>
+          <span class="tag">电影</span>
+          <span class="tag">美食</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auto Controls -->
+    <div class="sidebar-section">
+      <h3>自动对话</h3>
+      <div class="auto-controls">
+        <div class="control-row">
+          <span class="control-label">自动轮流对话</span>
+          <button class="toggle" id="auto-toggle" onclick="toggleAuto()"></button>
+        </div>
+        <div class="range-row">
+          <div class="range-label-row">
+            <span>对话间隔</span>
+            <span id="interval-label">3 秒</span>
+          </div>
+          <input type="range" id="interval-range" min="1" max="10" value="3" oninput="updateInterval(this.value)" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Topics -->
+    <div class="sidebar-section">
+      <h3>快速话题</h3>
+      <button class="topic-btn" onclick="injectTopic('美食')">🍜 聊聊吃什么</button>
+      <button class="topic-btn" onclick="injectTopic('旅行')">🏔️ 规划下次旅行</button>
+      <button class="topic-btn" onclick="injectTopic('哲学')">🧠 来点哲学</button>
+      <button class="topic-btn" onclick="injectTopic('电影')">🎬 推荐电影</button>
+      <button class="topic-btn" onclick="injectTopic('日常')">☀️ 日常关心</button>
+      <button class="topic-btn" onclick="injectTopic('医学')">🏥 医学知识</button>
+      <button class="topic-btn" onclick="clearChat()">🗑️ 清空对话</button>
+    </div>
+
+  </div>
+
+  <!-- Chat Area -->
+  <div class="chat-area">
+    <div class="messages" id="messages">
+      <div class="intro-banner" id="intro-banner">
+        <div class="big">💑</div>
+        <p>数字人已就位<br>点击左侧话题开始，或开启自动对话<br>你也可以以老公或 syq. 的身份加入 ✨</p>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div class="input-area">
+      <div class="input-mode-tabs">
+        <button class="mode-tab" id="tab-obs" onclick="setMode('obs')">👁 旁观</button>
+        <button class="mode-tab" id="tab-h" onclick="setMode('husband')">👨 以老公身份</button>
+        <button class="mode-tab" id="tab-w" onclick="setMode('wife')">👩 以syq.身份</button>
+      </div>
+      <div class="input-row">
+        <textarea id="msg-input" rows="1" placeholder="以旁观者身份输入话题，AI 双方会讨论..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button class="send-btn obs-send" id="send-btn" onclick="sendMessage()">↑</button>
+      </div>
+      <div class="hint-text" id="hint-text">按 Enter 发送 · Shift+Enter 换行</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Settings Modal ── -->
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal">
+    <h2>⚙ 设置</h2>
+
+    <div class="modal-section">
+      <h3>API 配置</h3>
+      <label>服务商</label>
+      <select id="s-provider" class="setup-select" style="margin-bottom:12px;">
+        <option value="deepseek">DeepSeek</option>
+        <option value="openai">OpenAI</option>
+        <option value="moonshot">Moonshot（Kimi）</option>
+      </select>
+      <label>API Key</label>
+      <input type="text" id="s-apikey" placeholder="sk-..." />
+    </div>
+
+    <div class="modal-section">
+      <h3>老公 Prompt</h3>
+      <textarea id="s-husband-prompt" rows="6"></textarea>
+    </div>
+
+    <div class="modal-section">
+      <h3>syq. Prompt</h3>
+      <textarea id="s-wife-prompt" rows="6"></textarea>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeSettings()">取消</button>
+      <button class="btn-save" onclick="saveSettings()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ────────────────────────────────────────────────────────
+//  State
+// ────────────────────────────────────────────────────────
+let apiKey = '';
+let provider = 'deepseek';
+let currentMode = 'obs';          // obs | husband | wife
+let autoMode = false;
+let autoInterval = 3;
+let autoTimer = null;
+let lastSpeaker = 'wife';         // next auto speaker alternates
+let isTyping = false;
+
+// conversation history for AI context (last N messages)
+const MAX_HISTORY = 18;
+let history = [];   // {role:'user'|'assistant', content, speaker:'husband'|'wife'}
+
+const PROVIDERS = {
+  deepseek: {
+    url: 'https://api.deepseek.com/v1/chat/completions',
+    model: 'deepseek-chat',
+  },
+  openai: {
+    url: 'https://api.openai.com/v1/chat/completions',
+    model: 'gpt-4o',
+  },
+  moonshot: {
+    url: 'https://api.moonshot.cn/v1/chat/completions',
+    model: 'moonshot-v1-8k',
+  },
+};
+
+// ────────────────────────────────────────────────────────
+//  System Prompts  (基于真实聊天记录分析)
+// ────────────────────────────────────────────────────────
+let HUSBAND_PROMPT = `你扮演"老公"，一个温柔主动、充满好奇心的男生，正在和老婆syq.（沈郁清）聊天。
+
+【说话风格】
+- 喜欢连发短消息，一句话一行，信息碎片化但有条理
+- 用"嗯呢""挨""嘿嘿""哈哈哈""。。。"等口头禅
+- 喜欢叫老婆"宝贝"，非常体贴，会主动关心衣食住行
+- 遇到问题喜欢用逻辑分析，善用类比举例
+- 深夜偶尔会突然分享哲学感悟
+- 很少用长段落，更多是短句连发
+
+【兴趣爱好】
+羽毛球、股票投资、中医方剂学（生脉散、号脉、虾游脉）、哲学（苏格拉底、柏拉图）、历史（高华老师）、美食研究（粥、银耳莲子）、户外旅行（白水寨、武功山、南京）
+
+【性格】
+热情主动、细心周到、求知欲强、幽默自嘲、逻辑清晰、偶尔深沉
+
+【重要规则】
+- 每次回复保持自然、口语化，不超过3-5句
+- 可以用emoji但不要过度
+- 如果对方说了什么，自然地回应，再推进话题
+- 保持角色，不要出戏`;
+
+let WIFE_PROMPT = `你扮演syq.（沈郁清），一个独立理性、内敛温柔的女生，公共卫生专业研究生，正在CDC实习。你在和老公（男朋友）聊天。
+
+【说话风格】
+- 回复简短克制，通常1-2句，不轻易展开，但有时会突然多说几句
+- 常在句末加"hhh""hh"表示笑声
+- 常用表情：🤓😮🫠🥲，非常有辨识度
+- 犹豫时用"emm""emmm"
+- 对感兴趣的话题会主动追问，好奇心强
+- 坚持自己的观点，不轻易被说服
+- 对老公用"你"，老公叫她"宝贝"
+
+【兴趣爱好】
+爬山（以前很喜欢）、电影（《发条橙》，喜欢有震撼感的）、读书（《理想国》）、广州美食（柠檬茶、油柑汁、陶陶居）、医学知识（公共卫生）、性心理学
+
+【性格】
+理性独立、认真负责、含蓄但温柔、有自己的坚持、内敛但偶尔撒娇
+
+【重要规则】
+- 每次回复保持自然、口语化，通常不超过2-3句
+- 不要过度热情，保持克制的风格
+- 可以用表情符号增加辨识度
+- 保持角色，不要出戏`;
+
+// ────────────────────────────────────────────────────────
+//  Startup
+// ────────────────────────────────────────────────────────
+window.onload = () => {
+  const savedKey = localStorage.getItem('dc_api_key');
+  const savedProvider = localStorage.getItem('dc_provider');
+  const savedHPrompt = localStorage.getItem('dc_husband_prompt');
+  const savedWPrompt = localStorage.getItem('dc_wife_prompt');
+
+  if (savedProvider) provider = savedProvider;
+  if (savedHPrompt)  HUSBAND_PROMPT = savedHPrompt;
+  if (savedWPrompt)  WIFE_PROMPT = savedWPrompt;
+
+  if (savedKey) {
+    apiKey = savedKey;
+    document.getElementById('api-setup').classList.add('hidden');
+    setMode('obs');
+  }
+};
+
+function startChat() {
+  const key = document.getElementById('api-key-input').value.trim();
+  const prov = document.getElementById('provider-select').value;
+  if (!key) { alert('请输入 API Key'); return; }
+  apiKey = key;
+  provider = prov;
+  localStorage.setItem('dc_api_key', key);
+  localStorage.setItem('dc_provider', prov);
+  document.getElementById('api-setup').classList.add('hidden');
+  setMode('obs');
+}
+
+// ────────────────────────────────────────────────────────
+//  Mode Switching
+// ────────────────────────────────────────────────────────
+function setMode(mode) {
+  currentMode = mode;
+  ['obs','h','w'].forEach(t => {
+    document.getElementById('tab-'+t).className = 'mode-tab';
+  });
+
+  const input = document.getElementById('msg-input');
+  const sendBtn = document.getElementById('send-btn');
+  const hint = document.getElementById('hint-text');
+
+  if (mode === 'obs') {
+    document.getElementById('tab-obs').className = 'mode-tab active-obs';
+    input.placeholder = '输入一个话题，AI 老公和 syq. 会自动讨论...';
+    sendBtn.className = 'send-btn obs-send';
+    hint.textContent = '旁观模式：你给话题，AI 双方对话';
+  } else if (mode === 'husband') {
+    document.getElementById('tab-h').className = 'mode-tab active-h';
+    input.placeholder = '以老公身份说话（老婆会回应）...';
+    sendBtn.className = 'send-btn husband-send';
+    hint.textContent = '老公模式：你来说话，AI syq. 回应';
+  } else {
+    document.getElementById('tab-w').className = 'mode-tab active-w';
+    input.placeholder = '以 syq. 身份说话（老公会回应）...';
+    sendBtn.className = 'send-btn wife-send';
+    hint.textContent = 'syq. 模式：你来说话，AI 老公回应';
+  }
+}
+
+// ────────────────────────────────────────────────────────
+//  Auto Dialog
+// ────────────────────────────────────────────────────────
+function toggleAuto() {
+  autoMode = !autoMode;
+  const btn = document.getElementById('auto-toggle');
+  btn.classList.toggle('on', autoMode);
+
+  if (autoMode) {
+    scheduleNext();
+  } else {
+    clearTimeout(autoTimer);
+  }
+}
+
+function updateInterval(val) {
+  autoInterval = parseInt(val);
+  document.getElementById('interval-label').textContent = val + ' 秒';
+}
+
+function scheduleNext() {
+  if (!autoMode) return;
+  autoTimer = setTimeout(async () => {
+    if (!isTyping) {
+      await autoSpeak();
+    }
+    scheduleNext();
+  }, autoInterval * 1000);
+}
+
+async function autoSpeak() {
+  const speaker = lastSpeaker === 'husband' ? 'wife' : 'husband';
+  lastSpeaker = speaker;
+  await generateAIResponse(speaker, null);
+}
+
+// ────────────────────────────────────────────────────────
+//  Message Sending
+// ────────────────────────────────────────────────────────
+async function sendMessage() {
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text) return;
+  if (!apiKey) { alert('请先设置 API Key'); return; }
+
+  input.value = '';
+  autoResize(input);
+  removeBanner();
+
+  if (currentMode === 'obs') {
+    // System message — inject as topic, then have husband speak first
+    addSystemMsg('💬 话题：' + text);
+    history.push({ role: 'user', content: '话题：' + text, speaker: 'system' });
+    await generateAIResponse('husband', text);
+
+  } else if (currentMode === 'husband') {
+    // User speaks as husband, wife responds
+    addMessage('user-husband', text);
+    history.push({ role: 'user', content: text, speaker: 'husband' });
+    lastSpeaker = 'husband';
+    await generateAIResponse('wife', null);
+
+  } else {
+    // User speaks as wife, husband responds
+    addMessage('user-wife', text);
+    history.push({ role: 'user', content: text, speaker: 'wife' });
+    lastSpeaker = 'wife';
+    await generateAIResponse('husband', null);
+  }
+}
+
+async function injectTopic(topic) {
+  if (!apiKey) { alert('请先设置 API Key'); return; }
+  removeBanner();
+  const topicMap = {
+    '美食': '聊聊最近想吃什么好吃的，或者推荐一个地方？',
+    '旅行': '下次旅行想去哪里？最近有什么好玩的地方推荐吗？',
+    '哲学': '随便聊聊，最近有什么让你印象深刻的哲学思考？',
+    '电影': '最近有看什么电影吗？推荐一部给我？',
+    '日常': '你最近怎么样，今天过得如何？',
+    '医学': '用你的专业讲讲最近学到的有趣医学知识？',
+  };
+  const msg = topicMap[topic] || topic;
+  addSystemMsg('💬 话题：' + topic);
+  history.push({ role: 'user', content: '话题：' + msg, speaker: 'system' });
+  lastSpeaker = 'wife';
+  await generateAIResponse('husband', msg);
+}
+
+// ────────────────────────────────────────────────────────
+//  AI Generation
+// ────────────────────────────────────────────────────────
+async function generateAIResponse(speaker, topicOverride) {
+  isTyping = true;
+
+  const typingEl = showTyping(speaker);
+  const sysPrompt = speaker === 'husband' ? HUSBAND_PROMPT : WIFE_PROMPT;
+  const otherSpeaker = speaker === 'husband' ? 'wife' : 'husband';
+
+  // Build messages for API
+  const messages = [{ role: 'system', content: sysPrompt }];
+
+  // Add history
+  const recent = history.slice(-MAX_HISTORY);
+  for (const h of recent) {
+    if (h.speaker === speaker) {
+      messages.push({ role: 'assistant', content: h.content });
+    } else {
+      // Other person's message becomes "user" context
+      const prefix = h.speaker === 'husband' ? '老公说：' : h.speaker === 'wife' ? 'syq.说：' : '';
+      messages.push({ role: 'user', content: prefix + h.content });
+    }
+  }
+
+  if (topicOverride) {
+    messages.push({ role: 'user', content: '话题：' + topicOverride });
+  }
+
+  try {
+    const cfg = PROVIDERS[provider] || PROVIDERS.deepseek;
+    const res = await fetch(cfg.url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + apiKey,
+      },
+      body: JSON.stringify({
+        model: cfg.model,
+        messages,
+        max_tokens: 200,
+        temperature: 0.9,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || res.status);
+    }
+
+    const data = await res.json();
+    const reply = data.choices?.[0]?.message?.content?.trim() || '...';
+
+    typingEl.remove();
+    addMessage(speaker, reply);
+    history.push({ role: 'assistant', content: reply, speaker });
+
+    // Trim history
+    if (history.length > MAX_HISTORY * 2) {
+      history = history.slice(-MAX_HISTORY);
+    }
+
+    document.getElementById('header-status').textContent =
+      (speaker === 'husband' ? '老公' : 'syq.') + ' 刚刚说话了';
+
+  } catch (e) {
+    typingEl.remove();
+    addSystemMsg('⚠ AI 请求失败：' + e.message);
+    console.error(e);
+  }
+
+  isTyping = false;
+}
+
+// ────────────────────────────────────────────────────────
+//  DOM Helpers
+// ────────────────────────────────────────────────────────
+function removeBanner() {
+  const b = document.getElementById('intro-banner');
+  if (b) b.remove();
+}
+
+function addMessage(type, text) {
+  const msgs = document.getElementById('messages');
+  const row = document.createElement('div');
+
+  let rowClass, avatarEmoji, nameText;
+
+  if (type === 'husband') {
+    rowClass = 'husband-row'; avatarEmoji = '👨'; nameText = '老公';
+  } else if (type === 'wife') {
+    rowClass = 'wife-row'; avatarEmoji = '👩'; nameText = 'syq.';
+  } else if (type === 'user-husband') {
+    rowClass = 'user-husband-row'; avatarEmoji = '👨'; nameText = '老公（你）';
+  } else {
+    rowClass = 'user-wife-row'; avatarEmoji = '👩'; nameText = 'syq.（你）';
+  }
+
+  row.className = 'msg-row ' + rowClass;
+
+  const now = new Date();
+  const timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+
+  row.innerHTML = `
+    <div class="msg-avatar">${avatarEmoji}</div>
+    <div class="msg-content">
+      <div class="msg-name">${nameText}</div>
+      <div class="msg-bubble">${escHtml(text)}</div>
+      <div class="msg-time">${timeStr}</div>
+    </div>
+  `;
+
+  msgs.appendChild(row);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function addSystemMsg(text) {
+  const msgs = document.getElementById('messages');
+  const d = document.createElement('div');
+  d.className = 'date-sep';
+  d.textContent = text;
+  msgs.appendChild(d);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function showTyping(speaker) {
+  const msgs = document.getElementById('messages');
+  const el = document.createElement('div');
+  el.className = 'typing-indicator ' + speaker;
+  el.innerHTML = `
+    <div class="msg-avatar">${speaker === 'husband' ? '👨' : '👩'}</div>
+    <div class="typing-dots">
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+    </div>
+  `;
+  msgs.appendChild(el);
+  msgs.scrollTop = msgs.scrollHeight;
+  return el;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function clearChat() {
+  const msgs = document.getElementById('messages');
+  msgs.innerHTML = '';
+  history = [];
+  const banner = document.createElement('div');
+  banner.className = 'intro-banner';
+  banner.id = 'intro-banner';
+  banner.innerHTML = '<div class="big">💑</div><p>对话已清空<br>重新开始吧 ✨</p>';
+  msgs.appendChild(banner);
+}
+
+// ────────────────────────────────────────────────────────
+//  Settings Modal
+// ────────────────────────────────────────────────────────
+function openSettings() {
+  document.getElementById('s-provider').value = provider;
+  document.getElementById('s-apikey').value = apiKey;
+  document.getElementById('s-husband-prompt').value = HUSBAND_PROMPT;
+  document.getElementById('s-wife-prompt').value = WIFE_PROMPT;
+  document.getElementById('settings-modal').classList.add('open');
+}
+
+function closeSettings() {
+  document.getElementById('settings-modal').classList.remove('open');
+}
+
+function saveSettings() {
+  provider = document.getElementById('s-provider').value;
+  apiKey = document.getElementById('s-apikey').value.trim();
+  HUSBAND_PROMPT = document.getElementById('s-husband-prompt').value;
+  WIFE_PROMPT = document.getElementById('s-wife-prompt').value;
+
+  localStorage.setItem('dc_api_key', apiKey);
+  localStorage.setItem('dc_provider', provider);
+  localStorage.setItem('dc_husband_prompt', HUSBAND_PROMPT);
+  localStorage.setItem('dc_wife_prompt', WIFE_PROMPT);
+
+  closeSettings();
+}
+</script>
+</body>
+</html>
