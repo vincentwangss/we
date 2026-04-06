@@ -1272,7 +1272,6 @@ async function speakText(text, speaker, force = false) {
   // 翻译网络用语和表情符号
   text = translateTextForSpeech(text);
   console.log(`[TTS] 翻译后文本: ${text.substring(0, 30)}...`);
-  }
   
   console.log(`[TTS] 开始语音合成: speaker=${speaker}, text=${text.substring(0, 30)}...`);
   
