@@ -993,6 +993,152 @@ var recognition = null;
 var isRecording = false;
 var currentAudio = null;
 
+// 文本翻译：网络用语和表情符号转语气词
+function translateTextForSpeech(text) {
+  if (!text) return text;
+  
+  var translations = [
+    // 笑声
+    { pattern: /h{4,}/gi, replacement: '哈哈哈哈' },
+    { pattern: /h{3}/gi, replacement: '哈哈哈' },
+    { pattern: /h{2}/gi, replacement: '哈哈' },
+    { pattern: /x{4,}/gi, replacement: '嘻嘻嘻嘻' },
+    { pattern: /x{3}/gi, replacement: '嘻嘻嘻' },
+    { pattern: /x{2}/gi, replacement: '嘻嘻' },
+    { pattern: /233+/g, replacement: '哈哈哈' },
+    { pattern: /666+/g, replacement: '牛牛牛' },
+    { pattern: /w{3,}/gi, replacement: '呜呜呜' },
+    { pattern: /w{2}/gi, replacement: '呜呜' },
+    { pattern: /a{3,}/gi, replacement: '啊啊啊' },
+    { pattern: /a{2}/gi, replacement: '啊啊' },
+    { pattern: /o{3,}/gi, replacement: '哦哦哦' },
+    { pattern: /o{2}/gi, replacement: '哦哦' },
+    { pattern: /e{3,}/gi, replacement: '呃呃呃' },
+    { pattern: /e{2}/gi, replacement: '呃呃' },
+    
+    // 表情符号转语气词
+    { pattern: /[😂🤣😆😄😃]/g, replacement: '哈哈' },
+    { pattern: /[😊😉☺️😋]/g, replacement: '嘻嘻' },
+    { pattern: /[😍😘🥰😻]/g, replacement: '好喜欢' },
+    { pattern: /[😢😭😿😞]/g, replacement: '呜呜' },
+    { pattern: /[😠😡🤬👿]/g, replacement: '哼' },
+    { pattern: /[😱😨😰😥]/g, replacement: '啊' },
+    { pattern: /[🤔🧐😕]/g, replacement: '嗯' },
+    { pattern: /[😴😪🥱]/g, replacement: '困' },
+    { pattern: /[😎🤩😏]/g, replacement: '嘿嘿' },
+    { pattern: /[🥺🙏😇]/g, replacement: '拜托拜托' },
+    { pattern: /[💕💖💗💓💝]/g, replacement: '爱心' },
+    { pattern: /[👍👏🙌]/g, replacement: '赞' },
+    { pattern: /[🔥💥]/g, replacement: '燃' },
+    { pattern: /[✨🌟⭐]/g, replacement: '星星' },
+    { pattern: /💔/g, replacement: '心碎' },
+    { pattern: /[🎉🎊]/g, replacement: '庆祝' },
+    { pattern: /[🤗🫂]/g, replacement: '抱抱' },
+    { pattern: /[😮😲😯]/g, replacement: '哇' },
+    { pattern: /😤/g, replacement: '哼' },
+    { pattern: /[🤭🫢]/g, replacement: '捂嘴笑' },
+    { pattern: /😬/g, replacement: '尴尬' },
+    { pattern: /🙄/g, replacement: '无语' },
+    { pattern: /😒/g, replacement: '无奈' },
+    { pattern: /[🤷🤷‍♀️🤷‍♂️]/g, replacement: '不知道' },
+    { pattern: /[💪🦾]/g, replacement: '加油' },
+    { pattern: /[🤦🤦‍♀️🤦‍♂️]/g, replacement: '无语' },
+    { pattern: /😅/g, replacement: '尴尬地笑' },
+    { pattern: /[😐😑]/g, replacement: '面无表情' },
+    { pattern: /😳/g, replacement: '害羞' },
+    { pattern: /[😋🤤]/g, replacement: '好吃' },
+    { pattern: /🤮/g, replacement: '呕' },
+    { pattern: /🤢/g, replacement: '恶心' },
+    { pattern: /[😷🤒🤕]/g, replacement: '不舒服' },
+    { pattern: /🥳/g, replacement: '开心' },
+    { pattern: /🥶/g, replacement: '好冷' },
+    { pattern: /🥵/g, replacement: '好热' },
+    { pattern: /🤯/g, replacement: '震惊' },
+    { pattern: /🤪/g, replacement: '调皮' },
+    { pattern: /[🥴😵😵‍💫]/g, replacement: '晕' },
+    { pattern: /🤫/g, replacement: '嘘' },
+    { pattern: /🤐/g, replacement: '闭嘴' },
+    { pattern: /[🤨🧐]/g, replacement: '怀疑' },
+    { pattern: /[😈👿]/g, replacement: '邪恶' },
+    { pattern: /👻/g, replacement: '鬼' },
+    { pattern: /[💀☠️]/g, replacement: '骷髅' },
+    { pattern: /[👽👾🤖]/g, replacement: '外星人' },
+    { pattern: /💩/g, replacement: '便便' },
+    { pattern: /🙈/g, replacement: '不看' },
+    { pattern: /🙉/g, replacement: '不听' },
+    { pattern: /🙊/g, replacement: '不说' },
+    { pattern: /💯/g, replacement: '满分' },
+    { pattern: /💢/g, replacement: '生气' },
+    { pattern: /💫/g, replacement: '晕' },
+    { pattern: /💦/g, replacement: '汗' },
+    { pattern: /💨/g, replacement: '飘走' },
+    { pattern: /💣/g, replacement: '炸弹' },
+    { pattern: /💤/g, replacement: '睡觉' },
+    
+    // 常见网络用语
+    { pattern: /\b(?:lol|LOL)\b/g, replacement: '哈哈' },
+    { pattern: /\b(?:lmao|LMAO)\b/g, replacement: '笑死我了' },
+    { pattern: /\b(?:omg|OMG)\b/g, replacement: '天哪' },
+    { pattern: /\b(?:wtf|WTF)\b/g, replacement: '什么鬼' },
+    { pattern: /\b(?:btw|BTW)\b/g, replacement: '顺便说一下' },
+    { pattern: /\b(?:thx|THX|thanks)\b/gi, replacement: '谢谢' },
+    { pattern: /\b(?:plz|PLZ|pls|PLS)\b/gi, replacement: '请' },
+    { pattern: /\b(?:ok|OK|okay)\b/g, replacement: '好的' },
+    { pattern: /\b(?:np|NP)\b/g, replacement: '没问题' },
+    { pattern: /\b(?:gg|GG)\b/g, replacement: '好局' },
+    { pattern: /\b(?:wp|WP)\b/g, replacement: '打得漂亮' },
+    { pattern: /\b(?:afk|AFK)\b/g, replacement: '暂时离开' },
+    { pattern: /\b(?:brb|BRB)\b/g, replacement: '马上回来' },
+    { pattern: /\b(?:ttyl|TTYL)\b/g, replacement: '回头聊' },
+    { pattern: /\b(?:idk|IDK)\b/g, replacement: '不知道' },
+    { pattern: /\b(?:imo|IMO)\b/g, replacement: '在我看来' },
+    { pattern: /\b(?:imho|IMHO)\b/g, replacement: '恕我直言' },
+    { pattern: /\b(?:fyi|FYI)\b/g, replacement: '供你参考' },
+    { pattern: /\b(?:asap|ASAP)\b/g, replacement: '尽快' },
+    { pattern: /\b(?:bff|BFF)\b/g, replacement: '最好的朋友' },
+    { pattern: /\b(?:dm|pm|PM)\b/g, replacement: '私信' },
+    { pattern: /\b(?:rt|RT)\b/g, replacement: '转发' },
+    { pattern: /\b(?:fomo|FOMO)\b/g, replacement: '怕错过' },
+    { pattern: /\b(?:irl|IRL)\b/g, replacement: '现实中' },
+    { pattern: /\b(?:tbh|TBH)\b/g, replacement: '说实话' },
+    { pattern: /\b(?:rn|RN)\b/g, replacement: '现在' },
+    { pattern: /\b(?:ftw|FTW)\b/g, replacement: '太棒了' },
+    { pattern: /\b(?:fml|FML)\b/g, replacement: '倒霉' },
+    { pattern: /\b(?:sus|SUS)\b/g, replacement: '可疑' },
+    { pattern: /\b(?:cap|CAP)\b/g, replacement: '假的' },
+    { pattern: /\b(?:no\s*cap|NO\s*CAP)\b/gi, replacement: '说真的' },
+    { pattern: /\b(?:slay|SLAY)\b/g, replacement: '太厉害了' },
+    { pattern: /\b(?:yolo|YOLO)\b/g, replacement: '活在当下' },
+    { pattern: /\b(?:lit|LIT)\b/g, replacement: '燃' },
+    { pattern: /\b(?:salty|SALTY)\b/g, replacement: '酸' },
+    { pattern: /\b(?:tea|TEA)\b/g, replacement: '八卦' },
+    { pattern: /\b(?:woke|WOKE)\b/g, replacement: '觉醒' },
+    { pattern: /\b(?:ghost|GHOST)\b/g, replacement: '消失' },
+    { pattern: /\b(?:vibe|VIBE)\b/g, replacement: '氛围' },
+    { pattern: /\b(?:lowkey|LOWKEY)\b/g, replacement: '有点' },
+    { pattern: /\b(?:highkey|HIGHKEY)\b/g, replacement: '非常' },
+    { pattern: /\b(?:savage|SAVAGE)\b/g, replacement: '狠' },
+    { pattern: /\b(?:goat|GOAT)\b/g, replacement: '最棒的' },
+    { pattern: /\b(?:bet|BET)\b/g, replacement: '好的' },
+    { pattern: /\b(?:ick|ICK)\b/g, replacement: '反感' },
+    { pattern: /\b(?:delulu|DELULU)\b/g, replacement: '妄想' },
+    { pattern: /\b(?:ate|ATE)\b/g, replacement: '完美' },
+    { pattern: /\b(?:rizz|RIZZ)\b/g, replacement: '魅力' },
+    { pattern: /\b(?:mid|MID)\b/g, replacement: '一般' },
+    { pattern: /\b(?:cringe|CRINGE)\b/g, replacement: '尴尬' },
+    { pattern: /\b(?:based|BASED)\b/g, replacement: '有主见' },
+    { pattern: /\b(?:simp|SIMP)\b/g, replacement: '讨好' },
+    { pattern: /\b(?:chad|CHAD)\b/g, replacement: '强者' }
+  ];
+  
+  var result = text;
+  for (var i = 0; i < translations.length; i++) {
+    result = result.replace(translations[i].pattern, translations[i].replacement);
+  }
+  
+  return result;
+}
+
 // GPT-SoVITS API 配置
 // 本地测试: http://localhost:9880
 // ngrok 远程: https://salena-plasterlike-effie.ngrok-free.dev
@@ -1121,6 +1267,11 @@ async function speakText(text, speaker, force = false) {
   if (!text) {
     console.log('[TTS] 文本为空，跳过');
     return;
+  }
+  
+  // 翻译网络用语和表情符号
+  text = translateTextForSpeech(text);
+  console.log(`[TTS] 翻译后文本: ${text.substring(0, 30)}...`);
   }
   
   console.log(`[TTS] 开始语音合成: speaker=${speaker}, text=${text.substring(0, 30)}...`);
