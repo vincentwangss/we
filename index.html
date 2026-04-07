@@ -1152,6 +1152,10 @@ function translateTextForSpeech(text) {
     result = result.replace(translations[i].pattern, translations[i].replacement);
   }
   
+  // 清理空格、换行、制表符等不可见字符，避免 TTS 读出
+  result = result.replace(/\s+/g, ' ');  // 多个空白字符合并为一个空格
+  result = result.trim();  // 去除首尾空格
+  
   return result;
 }
 
