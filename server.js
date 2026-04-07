@@ -523,6 +523,201 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// 悄悄话回复 API
+const WHISPER_REPLIES_FILE = path.join(__dirname, 'whisper-replies.json');
+
+// 读取回复
+app.get('/api/whisper-replies', (req, res) => {
+  try {
+    if (fs.existsSync(WHISPER_REPLIES_FILE)) {
+      const data = fs.readFileSync(WHISPER_REPLIES_FILE, 'utf-8');
+      res.json(JSON.parse(data));
+    } else {
+      res.json([]);
+    }
+  } catch (e) {
+    res.json([]);
+  }
+});
+
+// 添加回复
+app.post('/api/whisper-replies', (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text) {
+      return res.status(400).json({ error: '回复内容不能为空' });
+    }
+
+    let replies = [];
+    if (fs.existsSync(WHISPER_REPLIES_FILE)) {
+      replies = JSON.parse(fs.readFileSync(WHISPER_REPLIES_FILE, 'utf-8'));
+    }
+
+    const reply = {
+      id: Date.now().toString(),
+      text: text,
+      time: new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(/\//g, '月').replace(',', '日 ')
+    };
+
+    replies.unshift(reply);
+    fs.writeFileSync(WHISPER_REPLIES_FILE, JSON.stringify(replies, null, 2));
+
+    res.json({ success: true, reply });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// wss 回复管理页面
+app.get('/wss-reply', (req, res) => {
+  const html = `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>悄悄话回复 - wss</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 32px;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 { color: #667eea; margin-bottom: 8px; font-size: 20px; }
+    .subtitle { color: #888; font-size: 13px; margin-bottom: 24px; }
+    textarea {
+      width: 100%;
+      padding: 16px;
+      border: 2px solid #e8e8e8;
+      border-radius: 12px;
+      font-size: 15px;
+      resize: none;
+      min-height: 120px;
+      font-family: inherit;
+    }
+    textarea:focus { outline: none; border-color: #667eea; }
+    button {
+      width: 100%;
+      margin-top: 16px;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover { opacity: 0.9; }
+    .success {
+      margin-top: 16px;
+      padding: 12px;
+      background: #e8f5e9;
+      color: #2e7d32;
+      border-radius: 8px;
+      text-align: center;
+      display: none;
+    }
+    .reply-list { margin-top: 24px; }
+    .reply-item {
+      background: #f8f8f8;
+      padding: 16px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+    .reply-text { color: #333; font-size: 14px; line-height: 1.6; }
+    .reply-time { color: #888; font-size: 12px; margin-top: 8px; }
+    .back {
+      display: inline-block;
+      margin-top: 24px;
+      color: #667eea;
+      text-decoration: none;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>💌 悄悄话回复</h1>
+    <p class="subtitle">回复 syq. 的悄悄话</p>
+    
+    <textarea id="replyInput" placeholder="在这里写下你想对她说的话..."></textarea>
+    <button onclick="submitReply()">发送回复</button>
+    
+    <div class="success" id="successMsg">✅ 回复已发送！</div>
+    
+    <div class="reply-list" id="replyList">
+      <h3 style="color: #667eea; margin-bottom: 12px; font-size: 14px;">历史回复</h3>
+    </div>
+    
+    <a href="/" class="back">← 返回主页</a>
+  </div>
+  
+  <script>
+    function loadReplies() {
+      fetch('/api/whisper-replies')
+        .then(r => r.json())
+        .then(replies => {
+          const list = document.getElementById('replyList');
+          if (replies.length === 0) {
+            list.innerHTML += '<p style="color: #888; font-size: 13px;">还没有回复</p>';
+            return;
+          }
+          list.innerHTML += replies.map(r => 
+            '<div class="reply-item">' +
+              '<div class="reply-text">' + r.text + '</div>' +
+              '<div class="reply-time">' + r.time + '</div>' +
+            '</div>'
+          ).join('');
+        });
+    }
+    
+    function submitReply() {
+      const text = document.getElementById('replyInput').value.trim();
+      if (!text) {
+        alert('请输入回复内容');
+        return;
+      }
+      
+      fetch('/api/whisper-replies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      })
+      .then(r => r.json())
+      .then(data => {
+        document.getElementById('replyInput').value = '';
+        document.getElementById('successMsg').style.display = 'block';
+        setTimeout(() => {
+          document.getElementById('successMsg').style.display = 'none';
+        }, 3000);
+        // 刷新列表
+        document.getElementById('replyList').innerHTML = '<h3 style="color: #667eea; margin-bottom: 12px; font-size: 14px;">历史回复</h3>';
+        loadReplies();
+      });
+    }
+    
+    loadReplies();
+  </script>
+</body>
+</html>`;
+  
+  res.setHeader('Content-Type', 'text/html');
+  res.send(html);
+});
+
 // 主页 - emotion-v3.html（情感主页）
 app.get('/', (req, res) => {
   const pagePath = path.join(__dirname, 'emotion-v3.html');

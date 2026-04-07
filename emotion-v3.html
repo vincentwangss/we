@@ -20,6 +20,7 @@
             --white: #fff;
             --shadow: rgba(200, 150, 180, 0.15);
             --gold: #f5d799;
+            --reply-bg: #f0f7ff;
         }
 
         body {
@@ -34,6 +35,81 @@
             max-width: 480px;
             margin: 0 auto;
             padding: 20px 16px 100px;
+        }
+
+        /* 回复通知 */
+        .reply-notification {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 14px 20px;
+            border-radius: 16px;
+            margin-bottom: 16px;
+            display: none;
+            cursor: pointer;
+            animation: slideIn 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .reply-notification::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .reply-notification.show {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .reply-notification .icon {
+            font-size: 24px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .reply-notification .text {
+            flex: 1;
+        }
+
+        .reply-notification .title {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .reply-notification .desc {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .reply-notification .close {
+            font-size: 18px;
+            opacity: 0.7;
+            padding: 4px;
+        }
+
+        .reply-notification .close:hover {
+            opacity: 1;
         }
 
         /* 顶部状态栏 */
@@ -60,12 +136,12 @@
             letter-spacing: 1px;
         }
 
-        /* 每日卡片 */
+        /* 每日絮语 */
         .daily-card {
             background: var(--white);
             border-radius: 20px;
             padding: 28px 24px;
-            margin: 20px 0 24px;
+            margin: 0 0 20px;
             box-shadow: 0 4px 20px var(--shadow);
             position: relative;
             overflow: hidden;
@@ -103,12 +179,109 @@
             border-top: 1px dashed #f0e0ea;
         }
 
+        /* 每日话题 */
+        .topic-card {
+            background: linear-gradient(135deg, #fff5f5 0%, #fff0f5 100%);
+            border-radius: 20px;
+            padding: 24px;
+            margin: 0 0 20px;
+            border: 1px solid #ffd9e8;
+        }
+
+        .topic-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .topic-emoji {
+            font-size: 24px;
+        }
+
+        .topic-label {
+            font-size: 12px;
+            color: #e91e63;
+            font-weight: 500;
+        }
+
+        .topic-question {
+            font-size: 15px;
+            color: var(--text);
+            line-height: 1.8;
+            margin-bottom: 16px;
+        }
+
+        .topic-input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid #ffd9e8;
+            border-radius: 12px;
+            font-size: 14px;
+            resize: none;
+            background: var(--white);
+            color: var(--text);
+            font-family: inherit;
+            line-height: 1.6;
+        }
+
+        .topic-input:focus {
+            outline: none;
+            border-color: #e91e63;
+            box-shadow: 0 0 0 3px rgba(233, 30, 99, 0.1);
+        }
+
+        .topic-submit {
+            margin-top: 12px;
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #e91e63, #c2185b);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .topic-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(233, 30, 99, 0.3);
+        }
+
+        .topic-answer {
+            background: #fff9fb;
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 12px;
+            font-size: 14px;
+            color: var(--text);
+            line-height: 1.7;
+            display: none;
+        }
+
+        .topic-answer.show {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .topic-answer-label {
+            font-size: 11px;
+            color: var(--text-light);
+            margin-bottom: 6px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         /* 星座知识卡片 */
         .constellation-card {
             background: linear-gradient(135deg, #fff9f5 0%, #fef5ee 100%);
             border-radius: 20px;
             padding: 24px;
-            margin: 0 0 24px;
+            margin: 0 0 20px;
             border: 1px solid #fae8d8;
         }
 
@@ -155,7 +328,7 @@
             background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
             border-radius: 20px;
             padding: 24px;
-            margin: 0 0 24px;
+            margin: 0 0 20px;
             border: 1px solid #c8e6c9;
             text-align: center;
         }
@@ -199,7 +372,7 @@
             background: var(--white);
             border-radius: 20px;
             padding: 24px;
-            margin: 0 0 24px;
+            margin: 0 0 20px;
             box-shadow: 0 4px 20px var(--shadow);
         }
 
@@ -254,7 +427,7 @@
             background: linear-gradient(135deg, #faf5ff 0%, #f3e5f5 100%);
             border-radius: 20px;
             padding: 24px;
-            margin: 0 0 24px;
+            margin: 0 0 20px;
             border: 1px solid #e1bee7;
         }
 
@@ -268,7 +441,7 @@
         }
 
         .whisper-list {
-            max-height: 300px;
+            max-height: 400px;
             overflow-y: auto;
         }
 
@@ -278,6 +451,25 @@
             padding: 16px;
             margin-bottom: 12px;
             position: relative;
+        }
+
+        .whisper-item.sent {
+            background: linear-gradient(135deg, #f8e8ff, #f0e8f8);
+            border: 1px solid #e1bee7;
+        }
+
+        .whisper-item.reply {
+            background: var(--reply-bg);
+            border: 1px solid #bbdefb;
+            margin-left: 20px;
+        }
+
+        .whisper-item.reply::before {
+            content: '💬';
+            position: absolute;
+            left: -28px;
+            top: 16px;
+            font-size: 16px;
         }
 
         .whisper-item::before {
@@ -302,6 +494,13 @@
             font-size: 11px;
             color: var(--text-light);
             margin-top: 10px;
+            text-align: right;
+        }
+
+        .whisper-sender {
+            font-size: 11px;
+            color: #7b1fa2;
+            margin-top: 6px;
             text-align: right;
         }
 
@@ -355,7 +554,7 @@
             background: var(--white);
             border-radius: 20px;
             padding: 24px;
-            margin: 0 0 24px;
+            margin: 0 0 20px;
             box-shadow: 0 4px 20px var(--shadow);
         }
 
@@ -415,6 +614,7 @@
             padding: 12px 0;
             box-shadow: 0 -4px 20px var(--shadow);
             border-radius: 20px 20px 0 0;
+            z-index: 100;
         }
 
         .nav-item {
@@ -425,6 +625,8 @@
             cursor: pointer;
             transition: all 0.3s;
             border-radius: 12px;
+            text-decoration: none;
+            color: inherit;
         }
 
         .nav-item:hover {
@@ -458,7 +660,7 @@
             background: var(--white);
             border-radius: 20px;
             padding: 24px;
-            margin: 0 0 24px;
+            margin: 0 0 20px;
             box-shadow: 0 4px 20px var(--shadow);
         }
 
@@ -527,17 +729,12 @@
             display: block;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
         /* 在乎细节 */
         .care-section {
             background: linear-gradient(135deg, #f5f8ff 0%, #e8f0fe 100%);
             border-radius: 20px;
             padding: 24px;
-            margin: 0 0 24px;
+            margin: 0 0 20px;
             border: 1px solid #c5cae9;
         }
 
@@ -578,7 +775,7 @@
             background: var(--white);
             border-radius: 20px;
             padding: 24px;
-            margin: 0 0 24px;
+            margin: 0 0 20px;
             box-shadow: 0 4px 20px var(--shadow);
         }
 
@@ -630,7 +827,7 @@
             background: linear-gradient(135deg, #fff8e1, #ffecb3);
             border-radius: 20px;
             padding: 24px;
-            margin: 0 0 24px;
+            margin: 0 0 20px;
             text-align: center;
             border: 1px solid #ffe082;
         }
@@ -655,7 +852,7 @@
             cursor: pointer;
             opacity: 0.3;
             transition: all 0.3s;
-            z-index: 100;
+            z-index: 50;
         }
 
         .easter-egg:hover {
@@ -723,44 +920,74 @@
             border-radius: 2px;
         }
 
-        /* 时间选择器 */
-        .date-picker {
+        /* 回复面板 */
+        .reply-panel {
+            background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+            border-radius: 20px;
+            padding: 24px;
+            margin: 0 0 20px;
+            border: 1px solid #90caf9;
+            display: none;
+        }
+
+        .reply-panel.show {
+            display: block;
+            animation: slideIn 0.4s ease;
+        }
+
+        .reply-panel-title {
+            font-size: 14px;
+            color: #1565c0;
+            margin-bottom: 12px;
             display: flex;
             align-items: center;
             gap: 8px;
-            margin-top: 12px;
-            padding: 12px;
-            background: #fafafa;
+        }
+
+        .reply-card {
+            background: var(--white);
             border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
         }
 
-        .date-picker label {
-            font-size: 12px;
+        .reply-card:last-child {
+            margin-bottom: 0;
+        }
+
+        .reply-label {
+            font-size: 11px;
             color: var(--text-light);
+            margin-bottom: 6px;
         }
 
-        .date-picker input {
-            padding: 8px 12px;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 13px;
-            font-family: inherit;
+        .reply-text {
+            font-size: 14px;
+            color: var(--text);
+            line-height: 1.7;
         }
 
-        .date-picker button {
-            padding: 8px 16px;
-            background: var(--accent);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 12px;
-            cursor: pointer;
+        .reply-time {
+            font-size: 11px;
+            color: var(--text-light);
+            margin-top: 8px;
+            text-align: right;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- 每日温柔卡片 -->
+        <!-- 回复通知 -->
+        <div class="reply-notification" id="replyNotification" onclick="showReplyPanel()">
+            <span class="icon">💬</span>
+            <div class="text">
+                <div class="title" id="replyNotificationTitle">有新的悄悄话回复</div>
+                <div class="desc" id="replyNotificationDesc">点击查看</div>
+            </div>
+            <span class="close" onclick="event.stopPropagation(); dismissNotification()">×</span>
+        </div>
+
+        <!-- 每日絮语 -->
         <div class="daily-card">
             <div class="daily-label">✨ 今日絮语</div>
             <div class="daily-content" id="dailyContent">加载中...</div>
@@ -769,6 +996,21 @@
 
         <!-- 内容区域 -->
         <div class="content-section active" id="section-discover">
+            <!-- 每日话题 -->
+            <div class="topic-card">
+                <div class="topic-header">
+                    <span class="topic-emoji">💭</span>
+                    <span class="topic-label">今日话题</span>
+                </div>
+                <div class="topic-question" id="topicQuestion">正在加载...</div>
+                <textarea class="topic-input" id="topicInput" rows="2" placeholder="在这里写下你的回答..."></textarea>
+                <button class="topic-submit" onclick="submitTopic()">提交回答</button>
+                <div class="topic-answer" id="topicAnswer">
+                    <div class="topic-answer-label">你的回答</div>
+                    <div id="topicAnswerText"></div>
+                </div>
+            </div>
+
             <!-- 星座密码 -->
             <div class="constellation-card">
                 <div class="constellation-header">
@@ -812,6 +1054,14 @@
                     <textarea class="whisper-input" id="whisperInput" rows="3" placeholder="想说又说不出口的话，写在这里吧..."></textarea>
                     <button class="whisper-submit" onclick="submitWhisper()">投入树洞</button>
                 </div>
+            </div>
+
+            <!-- 回复面板 -->
+            <div class="reply-panel" id="replyPanel">
+                <div class="reply-panel-title">
+                    <span>💬</span> 他悄悄回复了你
+                </div>
+                <div id="replyList"></div>
             </div>
 
             <!-- 成就墙 -->
@@ -915,36 +1165,26 @@
     </div>
 
     <script>
-        // 数据配置
+        // ========== 数据配置 ==========
+        
         const DAILY_MESSAGES = [
-            {
-                text: "今天偷偷看了你好几次，<br>你都没发现，<br>但没关系，<br>光是这样就已经很开心了。",
-                emoji: "👀"
-            },
-            {
-                text: "有时候在想，<br>你会不会也像我一样，<br>在某个不经意的瞬间，<br>突然想起我？",
-                emoji: "💭"
-            },
-            {
-                text: "其实我不太擅长说好听的话，<br>但每一次想要靠近你的冲动，<br>都是真的。",
-                emoji: "🌱"
-            },
-            {
-                text: "你是那种<br>让人想变得更好的人，<br>不是因为你要求，<br>而是因为想要被你看见。",
-                emoji: "✨"
-            },
-            {
-                text: "今天天气很好，<br>适合想念一个人。<br>刚好，<br>我想的就是你。",
-                emoji: "☀️"
-            },
-            {
-                text: "有时候会想，<br>我们之间那些没说出口的话，<br>是不是都变成了<br>只属于我们的默契？",
-                emoji: "🤝"
-            },
-            {
-                text: "如果思念有声音，<br>你大概会被吵到吧。<br>但你不会介意的对不对，<br>因为你也会这样想我。",
-                emoji: "🔔"
-            }
+            { text: "今天偷偷看了你好几次，<br>你都没发现，<br>但没关系，<br>光是这样就已经很开心了。", emoji: "👀" },
+            { text: "有时候在想，<br>你会不会也像我一样，<br>在某个不经意的瞬间，<br>突然想起我？", emoji: "💭" },
+            { text: "其实我不太擅长说好听的话，<br>但每一次想要靠近你的冲动，<br>都是真的。", emoji: "🌱" },
+            { text: "你是那种<br>让人想变得更好的人，<br>不是因为你要求，<br>而是因为想要被你看见。", emoji: "✨" },
+            { text: "今天天气很好，<br>适合想念一个人。<br>刚好，<br>我想的就是你。", emoji: "☀️" },
+            { text: "有时候会想，<br>我们之间那些没说出口的话，<br>是不是都变成了<br>只属于我们的默契？", emoji: "🤝" },
+            { text: "如果思念有声音，<br>你大概会被吵到吧。<br>但你不会介意的对不对，<br>因为你也会这样想我。", emoji: "🔔" }
+        ];
+
+        const DAILY_TOPICS = [
+            { emoji: "🌟", question: "最近有没有什么小事让你觉得很开心？" },
+            { emoji: "🍰", question: "如果明天可以实现一个小愿望，你最想做什么？" },
+            { emoji: "📖", question: "最近在读什么书？有没有推荐给wss的？" },
+            { emoji: "🎵", question: "最近单曲循环最多的一首歌是什么？" },
+            { emoji: "🌙", question: "今晚想聊点什么？还是就这样安静待着也很好？" },
+            { emoji: "☀️", question: "今天最想吃的美食是什么？" },
+            { emoji: "✨", question: "如果可以回到过去的某一天，你想回到哪一天？" }
         ];
 
         const LUCK_ITEMS = [
@@ -1008,13 +1248,14 @@
         ];
 
         const PRESET_WHISPERS = [
-            { text: "其实今天有点想见你，但是不好意思说……", time: "今天 14:23" },
-            { text: "你最近好像很忙，但还是会抽空回我消息，偷偷开心一下。", time: "昨天 21:15" }
+            { text: "其实今天有点想见你，但是不好意思说……", time: "今天 14:23", type: "sent" },
+            { text: "你最近好像很忙，但还是会抽空回我消息，偷偷开心一下。", time: "昨天 21:15", type: "sent" }
         ];
 
-        // 初始化
+        // ========== 初始化 ==========
         function init() {
             loadDailyMessage();
+            loadDailyTopic();
             loadLuck();
             loadMilestones();
             loadHeartbeats();
@@ -1022,9 +1263,10 @@
             loadUnspoken();
             loadAchievements();
             loadWhispers();
+            checkReplies();
         }
 
-        // 每日絮语
+        // ========== 每日絮语 ==========
         function loadDailyMessage() {
             const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
             const index = dayOfYear % DAILY_MESSAGES.length;
@@ -1041,7 +1283,44 @@
                 `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${weekdays[now.getDay()]}`;
         }
 
-        // 小确幸
+        // ========== 每日话题 ==========
+        function loadDailyTopic() {
+            const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+            const index = dayOfYear % DAILY_TOPICS.length;
+            const topic = DAILY_TOPICS[index];
+
+            document.getElementById('topicQuestion').innerHTML = `
+                <span style="margin-right: 8px;">${topic.emoji}</span>
+                ${topic.question}
+            `;
+
+            // 检查是否已有回答
+            const savedAnswer = localStorage.getItem(`topic_${dayOfYear}`);
+            if (savedAnswer) {
+                document.getElementById('topicAnswerText').textContent = savedAnswer;
+                document.getElementById('topicAnswer').classList.add('show');
+                document.getElementById('topicInput').value = savedAnswer;
+            }
+        }
+
+        function submitTopic() {
+            const input = document.getElementById('topicInput');
+            const text = input.value.trim();
+
+            if (!text) {
+                input.placeholder = '写点什么吧...';
+                return;
+            }
+
+            const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+            localStorage.setItem(`topic_${dayOfYear}`, text);
+
+            document.getElementById('topicAnswerText').textContent = text;
+            document.getElementById('topicAnswer').classList.add('show');
+            input.placeholder = '已保存~';
+        }
+
+        // ========== 小确幸 ==========
         function loadLuck() {
             const index = Math.floor(Math.random() * LUCK_ITEMS.length);
             const luck = LUCK_ITEMS[index];
@@ -1063,7 +1342,7 @@
             }, 300);
         }
 
-        // 里程碑
+        // ========== 里程碑 ==========
         function loadMilestones() {
             const container = document.getElementById('milestoneList');
             container.innerHTML = MILESTONES.map(m => `
@@ -1078,7 +1357,7 @@
             `).join('');
         }
 
-        // 心动时刻
+        // ========== 心动时刻 ==========
         function loadHeartbeats() {
             const container = document.getElementById('heartbeatList');
             container.innerHTML = HEARTBEATS.slice(0, 4).map(h => `
@@ -1100,7 +1379,7 @@
             result.classList.add('show');
         }
 
-        // 在乎细节
+        // ========== 在乎细节 ==========
         function loadCare() {
             const container = document.getElementById('careList');
             container.innerHTML = CARE_ITEMS.map(c => `
@@ -1111,7 +1390,7 @@
             `).join('');
         }
 
-        // 说不出的
+        // ========== 说不出的 ==========
         function loadUnspoken() {
             const container = document.getElementById('unspokenList');
             container.innerHTML = UNSPOKEN.map(u => `
@@ -1122,7 +1401,7 @@
             `).join('');
         }
 
-        // 成就墙
+        // ========== 成就墙 ==========
         function loadAchievements() {
             const container = document.getElementById('achievementList');
             container.innerHTML = ACHIEVEMENTS.map(a => `
@@ -1133,23 +1412,51 @@
             `).join('');
         }
 
-        // 悄悄话
+        // ========== 悄悄话 ==========
         function loadWhispers() {
             const container = document.getElementById('whisperList');
+            
+            // 从 localStorage 读取用户的悄悄话
             let whispers = JSON.parse(localStorage.getItem('whispers') || '[]');
-            whispers = [...PRESET_WHISPERS, ...whispers];
+            
+            // 从服务器 API 读取回复
+            fetch('/api/whisper-replies')
+                .then(res => res.json())
+                .then(replies => {
+                    // 合并悄悄话和回复
+                    const allItems = [
+                        ...whispers.map(w => ({ ...w, type: 'sent' })),
+                        ...replies.map(r => ({ ...r, type: 'reply' }))
+                    ].sort((a, b) => new Date(a.time) - new Date(b.time));
 
-            if (whispers.length === 0) {
-                container.innerHTML = '<div style="text-align: center; color: #b39ddb; padding: 20px;">还没有悄悄话，来说点什么吧~</div>';
-                return;
-            }
+                    // 加上预设
+                    const combined = [...PRESET_WHISPERS, ...allItems];
 
-            container.innerHTML = whispers.map(w => `
-                <div class="whisper-item">
-                    <div class="whisper-content">${w.text}</div>
-                    <div class="whisper-time">${w.time}</div>
-                </div>
-            `).join('');
+                    if (combined.length === 0) {
+                        container.innerHTML = '<div style="text-align: center; color: #b39ddb; padding: 20px;">还没有悄悄话，来说点什么吧~</div>';
+                        return;
+                    }
+
+                    container.innerHTML = combined.map(item => `
+                        <div class="whisper-item ${item.type}">
+                            <div class="whisper-content">${item.text}</div>
+                            <div class="whisper-time">${item.time}</div>
+                            ${item.type === 'sent' ? '<div class="whisper-sender">来自 syq.</div>' : ''}
+                        </div>
+                    `).join('');
+                })
+                .catch(e => {
+                    // 如果 API 失败，只显示本地数据
+                    const allItems = [...whispers.map(w => ({ ...w, type: 'sent' }))];
+                    const combined = [...PRESET_WHISPERS, ...allItems];
+                    container.innerHTML = combined.map(item => `
+                        <div class="whisper-item ${item.type}">
+                            <div class="whisper-content">${item.text}</div>
+                            <div class="whisper-time">${item.time}</div>
+                            ${item.type === 'sent' ? '<div class="whisper-sender">来自 syq.</div>' : ''}
+                        </div>
+                    `).join('');
+                });
         }
 
         function submitWhisper() {
@@ -1170,21 +1477,84 @@
 
             input.value = '';
             loadWhispers();
-
-            // 成功提示
             input.placeholder = '想说又说不出口的话，写在这里吧...';
         }
 
-        // 导航切换
+        // ========== 回复通知 ==========
+        function checkReplies() {
+            // 从服务器 API 获取回复
+            fetch('/api/whisper-replies')
+                .then(res => res.json())
+                .then(replies => {
+                    let lastSeen = localStorage.getItem('lastSeenReplies') || '0';
+                    const lastSeenTime = parseInt(lastSeen);
+                    
+                    // 检查是否有新的未读回复
+                    const unreadCount = replies.filter(r => {
+                        const replyTime = new Date(r.time).getTime();
+                        return replyTime > lastSeenTime && lastSeenTime > 0;
+                    }).length;
+                    
+                    // 或者只要有回复就显示（第一次）
+                    if (replies.length > 0 && lastSeenTime === 0) {
+                        document.getElementById('replyNotificationTitle').textContent = `有 ${replies.length} 条悄悄话回复`;
+                        document.getElementById('replyNotificationDesc').textContent = '点此查看他的回复';
+                        document.getElementById('replyNotification').classList.add('show');
+                    } else if (unreadCount > 0) {
+                        document.getElementById('replyNotificationTitle').textContent = `有 ${unreadCount} 条新的悄悄话回复`;
+                        document.getElementById('replyNotificationDesc').textContent = '点此查看他的回复';
+                        document.getElementById('replyNotification').classList.add('show');
+                    }
+                })
+                .catch(e => console.log('检查回复失败:', e));
+        }
+
+        function showReplyPanel() {
+            document.getElementById('replyPanel').classList.add('show');
+            document.getElementById('replyNotification').classList.remove('show');
+            
+            // 标记为已读（当前时间戳）
+            localStorage.setItem('lastSeenReplies', Date.now().toString());
+            
+            // 从服务器加载回复
+            const container = document.getElementById('replyList');
+            fetch('/api/whisper-replies')
+                .then(res => res.json())
+                .then(replies => {
+                    if (replies.length === 0) {
+                        container.innerHTML = '<div style="text-align: center; color: #90caf9; padding: 20px;">还没有回复哦~</div>';
+                        return;
+                    }
+                    
+                    container.innerHTML = replies.map(r => `
+                        <div class="reply-card">
+                            <div class="reply-label">💬 他的回复</div>
+                            <div class="reply-text">${r.text}</div>
+                            <div class="reply-time">${r.time}</div>
+                        </div>
+                    `).join('');
+                })
+                .catch(e => {
+                    container.innerHTML = '<div style="text-align: center; color: #90caf9; padding: 20px;">加载回复失败</div>';
+                });
+        }
+
+        function dismissNotification() {
+            document.getElementById('replyNotification').classList.remove('show');
+        }
+
+        // ========== 导航 ==========
         function switchTab(tab) {
-            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(item => {
+                if (!item.href) item.classList.remove('active');
+            });
             event.currentTarget.classList.add('active');
 
             document.querySelectorAll('.content-section').forEach(section => section.classList.remove('active'));
             document.getElementById('section-' + tab).classList.add('active');
         }
 
-        // 彩蛋
+        // ========== 彩蛋 ==========
         function showEasterEgg() {
             document.getElementById('overlay').classList.add('show');
             document.getElementById('easterEggPopup').classList.add('show');
@@ -1195,7 +1565,7 @@
             document.getElementById('easterEggPopup').classList.remove('show');
         }
 
-        // 启动
+        // ========== 启动 ==========
         init();
     </script>
 </body>
