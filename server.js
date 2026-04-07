@@ -339,13 +339,115 @@ io.on('connection', (socket) => {
   });
 });
 
+// ==================== GPT-SoVITS API PROXY ====================
+// GPT-SoVITS API 地址（本地或 ngrok）
+const GPT_SOVITS_API = process.env.GPT_SOVITS_API || 'http://127.0.0.1:9880';
+
+// 代理 GPT-SoVITS 模型切换请求
+app.get('/api/tts/set_gpt_weights', async (req, res) => {
+  try {
+    const weightsPath = req.query.weights_path;
+    if (!weightsPath) {
+      return res.status(400).json({ error: 'Missing weights_path' });
+    }
+    
+    const response = await fetch(`${GPT_SOVITS_API}/set_gpt_weights?weights_path=${encodeURIComponent(weightsPath)}`);
+    const data = await response.text();
+    res.status(response.status).send(data);
+  } catch (error) {
+    console.error('[TTS Proxy] set_gpt_weights error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/tts/set_sovits_weights', async (req, res) => {
+  try {
+    const weightsPath = req.query.weights_path;
+    if (!weightsPath) {
+      return res.status(400).json({ error: 'Missing weights_path' });
+    }
+    
+    const response = await fetch(`${GPT_SOVITS_API}/set_sovits_weights?weights_path=${encodeURIComponent(weightsPath)}`);
+    const data = await response.text();
+    res.status(response.status).send(data);
+  } catch (error) {
+    console.error('[TTS Proxy] set_sovits_weights error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 代理 TTS 请求 - 映射到 /tts 端点
+app.all('/api/tts', async (req, res) => {
+  try {
+    const queryString = req.url.includes('?') ? req.url.split('?')[1] : '';
+    const targetUrl = `${GPT_SOVITS_API}/tts${queryString ? '?' + queryString : ''}`;
+    
+    console.log('[TTS Proxy]', req.method, targetUrl);
+    
+    const response = await fetch(targetUrl, {
+      method: req.method,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined
+    });
+    
+    // 如果是音频文件，直接转发
+    const contentType = response.headers.get('content-type');
+    if (contentType && (contentType.includes('audio') || contentType.includes('wav') || contentType.includes('octet-stream'))) {
+      res.setHeader('Content-Type', contentType);
+      const buffer = await response.arrayBuffer();
+      res.send(Buffer.from(buffer));
+    } else {
+      const data = await response.text();
+      res.status(response.status).send(data);
+    }
+  } catch (error) {
+    console.error('[TTS Proxy] error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 保留通配符路由以兼容其他可能的端点
+app.all('/api/tts/*', async (req, res) => {
+  try {
+    const targetPath = req.path.replace('/api/tts', '');
+    const targetUrl = `${GPT_SOVITS_API}${targetPath}${req.url.includes('?') ? '?' + req.url.split('?')[1] : ''}`;
+    
+    console.log('[TTS Proxy]', req.method, targetUrl);
+    
+    const response = await fetch(targetUrl, {
+      method: req.method,
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: req.method !== 'GET' && req.method !== 'HEAD' ? JSON.stringify(req.body) : undefined
+    });
+    
+    // 如果是音频文件，直接转发
+    const contentType = response.headers.get('content-type');
+    if (contentType && (contentType.includes('audio') || contentType.includes('wav') || contentType.includes('octet-stream'))) {
+      res.setHeader('Content-Type', contentType);
+      const buffer = await response.arrayBuffer();
+      res.send(Buffer.from(buffer));
+    } else {
+      const data = await response.text();
+      res.status(response.status).send(data);
+    }
+  } catch (error) {
+    console.error('[TTS Proxy] error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== HTTP ROUTES ====================
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     users: connectedUsers.size,
     history: chatHistory.length,
-    autoMode: aiConfig.autoMode
+    autoMode: aiConfig.autoMode,
+    ttsApi: GPT_SOVITS_API
   });
 });
 
