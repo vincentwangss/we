@@ -607,8 +607,29 @@
 
     /* ─── Mobile ─── */
     @media (max-width: 768px) {
-      .sidebar { display: none; }
+      .sidebar { 
+        display: none;
+        position: fixed;
+        top: 60px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        z-index: 300;
+        background: var(--bg);
+      }
+      .sidebar.mobile-open {
+        display: flex;
+      }
+      .mobile-sidebar-btn {
+        display: flex;
+      }
       .msg-row { max-width: 85%; }
+    }
+    @media (min-width: 769px) {
+      .mobile-sidebar-btn {
+        display: none;
+      }
     }
   </style>
 </head>
@@ -657,6 +678,7 @@
       <div class="online-dot"></div>
       <span id="online-count">1 人在线</span>
     </div>
+    <button class="btn-header mobile-sidebar-btn" onclick="toggleMobileSidebar()" title="AI机器人">🤖</button>
     <button class="btn-header" onclick="openSettings()">⚙</button>
   </div>
 </header>
@@ -814,6 +836,9 @@ socket.on('clear', () => document.getElementById('messages').innerHTML = '');
 socket.on('config', (cfg) => { if (cfg.autoMode !== undefined) document.getElementById('auto-toggle').classList.toggle('on', cfg.autoMode); });
 socket.on('system', (data) => addSystemMsg(data.content));
 
+// 点击外部关闭手机端侧边栏
+document.addEventListener('click', closeMobileSidebarOnClickOutside);
+
 function renderMessage(msg) {
   const msgs = document.getElementById('messages');
   const typing = msgs.querySelector('.typing-indicator');
@@ -949,6 +974,23 @@ function clearChat() {
 
 function openSettings() { document.getElementById('settings-modal').classList.add('open'); }
 function closeSettings() { document.getElementById('settings-modal').classList.remove('open'); }
+
+// 手机端侧边栏切换
+function toggleMobileSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  sidebar.classList.toggle('mobile-open');
+}
+
+// 点击侧边栏外部关闭
+function closeMobileSidebarOnClickOutside(e) {
+  const sidebar = document.querySelector('.sidebar');
+  const btn = document.querySelector('.mobile-sidebar-btn');
+  if (window.innerWidth <= 768 && sidebar.classList.contains('mobile-open')) {
+    if (!sidebar.contains(e.target) && !btn.contains(e.target)) {
+      sidebar.classList.remove('mobile-open');
+    }
+  }
+}
 
 function saveSettings() {
   socket.emit('updateConfig', {
