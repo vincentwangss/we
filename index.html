@@ -801,6 +801,9 @@ var socket = typeof io !== 'undefined' ? io(SERVER_URL) : {
 };
 var myName = '', myRole = 'observer', users = [];
 
+// 记录访客（静默，不影响页面加载）
+fetch('/api/visit', { method: 'POST' }).catch(() => {});
+
 function selectRole(el) {
   document.querySelectorAll('.role-option').forEach(o => o.classList.remove('selected'));
   el.classList.add('selected');

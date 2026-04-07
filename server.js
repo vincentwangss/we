@@ -526,6 +526,206 @@ app.get('/api/health', (req, res) => {
 // 悄悄话回复 API
 const WHISPER_REPLIES_FILE = path.join(__dirname, 'whisper-replies.json');
 
+// 访客记录 API
+const VISITS_FILE = path.join(__dirname, 'visits.json');
+
+// 记录访客
+app.post('/api/visit', (req, res) => {
+  try {
+    let visits = [];
+    if (fs.existsSync(VISITS_FILE)) {
+      visits = JSON.parse(fs.readFileSync(VISITS_FILE, 'utf-8'));
+    }
+
+    const visit = {
+      id: Date.now().toString(),
+      time: new Date().toLocaleString('zh-CN', { 
+        month: '2-digit', 
+        day: '2-digit', 
+        hour: '2-digit', 
+        minute: '2-digit',
+        second: '2-digit'
+      }).replace(/\//g, '月').replace(',', '日 '),
+      timestamp: Date.now(),
+      userAgent: req.headers['user-agent'] ? req.headers['user-agent'].substring(0, 100) : '',
+      referer: req.headers['referer'] || ''
+    };
+
+    visits.unshift(visit);
+    
+    // 只保留最近 200 条记录
+    if (visits.length > 200) {
+      visits = visits.slice(0, 200);
+    }
+    
+    fs.writeFileSync(VISITS_FILE, JSON.stringify(visits, null, 2));
+
+    res.json({ success: true, visit });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// 获取访客记录
+app.get('/api/visits', (req, res) => {
+  try {
+    if (fs.existsSync(VISITS_FILE)) {
+      const data = fs.readFileSync(VISITS_FILE, 'utf-8');
+      res.json(JSON.parse(data));
+    } else {
+      res.json([]);
+    }
+  } catch (e) {
+    res.json([]);
+  }
+});
+
+// wss 访客记录管理页面
+app.get('/wss-visits', (req, res) => {
+  const html = `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>访客记录 - wss</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #11998e, #38ef7d);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 32px;
+      max-width: 600px;
+      margin: 0 auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 { color: #11998e; margin-bottom: 8px; font-size: 20px; }
+    .subtitle { color: #888; font-size: 13px; margin-bottom: 24px; }
+    .stats {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat {
+      flex: 1;
+      background: linear-gradient(135deg, #11998e, #38ef7d);
+      color: white;
+      padding: 16px;
+      border-radius: 12px;
+      text-align: center;
+    }
+    .stat-num { font-size: 28px; font-weight: bold; }
+    .stat-label { font-size: 12px; opacity: 0.9; }
+    .visit-list { max-height: 400px; overflow-y: auto; }
+    .visit-item {
+      background: #f8f8f8;
+      padding: 12px 16px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .visit-time { color: #11998e; font-weight: 500; font-size: 14px; }
+    .visit-agent { color: #888; font-size: 12px; }
+    .empty { color: #888; text-align: center; padding: 40px; }
+    .back {
+      display: inline-block;
+      margin-top: 24px;
+      color: #11998e;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .refresh {
+      float: right;
+      background: #11998e;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .refresh:hover { opacity: 0.8; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 访客记录</h1>
+    <p class="subtitle">wss & syq. 的小窝访问情况</p>
+    
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-num" id="totalCount">0</div>
+        <div class="stat-label">总访问</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" id="todayCount">0</div>
+        <div class="stat-label">今日访问</div>
+      </div>
+    </div>
+    
+    <button class="refresh" onclick="loadVisits()">🔄 刷新</button>
+    <h3 style="color: #333; margin: 20px 0 12px; font-size: 14px;">最近访问</h3>
+    
+    <div class="visit-list" id="visitList">
+      <div class="empty">加载中...</div>
+    </div>
+    
+    <a href="/" class="back">← 返回主页</a>
+  </div>
+  
+  <script>
+    function loadVisits() {
+      fetch('/api/visits')
+        .then(r => r.json())
+        .then(visits => {
+          document.getElementById('totalCount').textContent = visits.length;
+          
+          // 今日访问
+          const today = new Date().toDateString();
+          const todayVisits = visits.filter(v => new Date(v.timestamp).toDateString() === today);
+          document.getElementById('todayCount').textContent = todayVisits.length;
+          
+          const list = document.getElementById('visitList');
+          if (visits.length === 0) {
+            list.innerHTML = '<div class="empty">还没有访客记录</div>';
+            return;
+          }
+          
+          list.innerHTML = visits.map(v => {
+            // 简单判断设备类型
+            let device = '🖥️';
+            if (v.userAgent.includes('Mobile')) device = '📱';
+            else if (v.userAgent.includes('iPad')) device = '📲';
+            
+            return '<div class="visit-item">' +
+              '<div>' +
+                '<div class="visit-time">' + device + ' ' + v.time + '</div>' +
+                '<div class="visit-agent">' + (v.referer ? '来源: ' + v.referer.replace('http://','').replace('https://','').split('/')[0] : '直接访问') + '</div>' +
+              '</div>' +
+            '</div>';
+          }).join('');
+        });
+    }
+    
+    loadVisits();
+    // 每30秒自动刷新
+    setInterval(loadVisits, 30000);
+  </script>
+</body>
+</html>`;
+  
+  res.setHeader('Content-Type', 'text/html');
+  res.send(html);
+});
+
 // 读取回复
 app.get('/api/whisper-replies', (req, res) => {
   try {
