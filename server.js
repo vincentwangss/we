@@ -133,6 +133,48 @@ let autoTimer = null;
 let isGenerating = false;
 
 // ==================== AI GENERATION ====================
+
+// 随机开场话题列表
+const RANDOM_TOPICS = [
+  // 时事热点
+  '最近有什么新闻让你印象深刻？',
+  '你看最近的社会热点了吗？',
+  '最近国际局势有什么变化？',
+  // 科技商业
+  'AI发展太快了，你觉得会怎样改变生活？',
+  '马斯克最近又有什么新动作？',
+  '你觉得苹果和安卓哪个更好？',
+  '投资股票有什么心得？',
+  // 深度话题
+  '最近在读什么书？',
+  '你觉得人生的意义是什么？',
+  '有什么哲学观点让你思考很久？',
+  '心理学上有什么有趣的现象？',
+  // 艺术文化
+  '最近看过什么好电影？',
+  '推荐一部你喜欢的电影',
+  '有什么好听的音乐分享？',
+  '最近有什么艺术展览值得看？',
+  // 体育运动
+  '最近有运动吗？',
+  '羽毛球打得怎么样？',
+  'NBA最近有什么精彩比赛？',
+  '想不想一起去爬山？',
+  // 生活兴趣
+  '最近想吃什么好吃的？',
+  '广州有什么好吃的推荐？',
+  '中医养生有什么心得？',
+  '下次旅行想去哪里？',
+  '最近睡眠怎么样？',
+  '今天过得怎么样？'
+];
+
+// 获取随机开场话题
+function getRandomTopic() {
+  const index = Math.floor(Math.random() * RANDOM_TOPICS.length);
+  return RANDOM_TOPICS[index];
+}
+
 async function generateAIResponse(speaker, topicOverride = null) {
   if (isGenerating) return;
   isGenerating = true;
@@ -160,6 +202,12 @@ async function generateAIResponse(speaker, topicOverride = null) {
     } else if (msg.speaker === 'wife') {
       messages.push({ role: 'user', content: 'syq.说：' + msg.content });
     }
+  }
+
+  // 如果对话历史为空，使用随机开场话题
+  if (chatHistory.length === 0 && !topicOverride) {
+    topicOverride = getRandomTopic();
+    console.log('[AI] 随机开场话题:', topicOverride);
   }
 
   if (topicOverride) {
