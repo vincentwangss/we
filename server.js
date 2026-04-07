@@ -523,8 +523,24 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// 动态读取 index.html，确保总是最新内容
+// 主页 - emotion-v3.html（情感主页）
 app.get('/', (req, res) => {
+  const pagePath = path.join(__dirname, 'emotion-v3.html');
+  let content = fs.readFileSync(pagePath, 'utf-8');
+  
+  // 添加版本号防止缓存
+  const version = Date.now();
+  content = content.replace(/<script>/g, `<script>\nconsole.log('Version: ${version}');`);
+  
+  res.setHeader('Content-Type', 'text/html');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.send(content);
+});
+
+// 聊天页面 - index.html
+app.get('/chat', (req, res) => {
   const indexPath = path.join(__dirname, 'index.html');
   let content = fs.readFileSync(indexPath, 'utf-8');
   
@@ -539,8 +555,9 @@ app.get('/', (req, res) => {
   res.send(content);
 });
 
+// 其他路径 fallback 到主页
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(__dirname, 'emotion-v3.html'));
 });
 
 // ==================== START ====================
