@@ -1327,11 +1327,9 @@ async function speakSingleSegment(text, speaker) {
     console.log('[TTS] 调用 API:', apiUrl);
     
     // 调用 GPT-SoVITS API
-    var response = await fetch(apiUrl, {
-      headers: {
-        'ngrok-skip-browser-warning': '1'
-      }
-    });
+    // 不添加自定义 header 以避免触发 CORS 预检请求
+    // ngrok 警告通过 URL 参数绕过
+    var response = await fetch(apiUrl);
     
     console.log('[TTS] API 响应状态:', response.status);
     
