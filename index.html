@@ -1323,12 +1323,13 @@ async function speakSingleSegment(text, speaker) {
   console.log('[TTS] API 参数:', params);
   
   try {
+    // 添加 ngrok 跳过警告参数（通过 URL 而非 header，避免 CORS 预检）
+    params['ngrok-skip-browser-warning'] = '1';
     var apiUrl = `${GPT_SOVITS_API}/?${new URLSearchParams(params)}`;
     console.log('[TTS] 调用 API:', apiUrl);
     
     // 调用 GPT-SoVITS API
     // 不添加自定义 header 以避免触发 CORS 预检请求
-    // ngrok 警告通过 URL 参数绕过
     var response = await fetch(apiUrl);
     
     console.log('[TTS] API 响应状态:', response.status);
