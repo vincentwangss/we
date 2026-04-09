@@ -1061,6 +1061,16 @@ async function ttsProcessQueue() {
 function cleanTextForTTS(text) {
   if (!text) return '';
 
+  // 0. HTML 实体 & 标签（<br>、<p>、<b> 等）
+  text = text.replace(/<br\s*\/?>/gi, ' ');   // <br> 换行转空格
+  text = text.replace(/<\/?(p|div|li|h[1-6])[^>]*>/gi, ' '); // 块级标签转空格
+  text = text.replace(/<[^>]+>/g, '');        // 清除所有剩余 HTML 标签
+  text = text.replace(/&amp;/g, '&');
+  text = text.replace(/&lt;/g, '');
+  text = text.replace(/&gt;/g, '');
+  text = text.replace(/&nbsp;/g, ' ');
+  text = text.replace(/&[a-zA-Z]+;/g, '');   // 其他 HTML 实体
+
   // 1. 零宽字符 & 乱码
   text = text.replace(/\uFFFD/g, '');
   text = text.replace(/[\u200B-\u200D\uFEFF]/g, '');
@@ -1085,7 +1095,8 @@ function cleanTextForTTS(text) {
   // 4. 特殊标点/符号（保留中文标点）
   text = text.replace(/[<>{}[\]\\\/^~]/g, '');
 
-  // 5. 多余空白
+  // 5. 多余空白（含 \r\n 换行）
+  text = text.replace(/[\r\n\t]+/g, ' ');
   text = text.replace(/\s+/g, ' ').trim();
 
   return text;
@@ -1454,47 +1465,53 @@ async function speakText(text, speaker, force = false) {
     currentAudio.pause();
     currentAudio = null;
   }
-  
-  // 文本分段：长文本分段合成，避免等待时间过长
-  const segments = splitTextIntoSegments(text, 80);
-  if (segments.length > 1) {
-    console.log(`[TTS] 文本已分段: ${segments.length} 段`);
-    // 逐段播放
-    for (let i = 0; i < segments.length; i++) {
-      console.log(`[TTS] 播放第 ${i + 1}/${segments.length} 段`);
-      await speakSingleSegment(segments[i], speaker);
-    }
-    return;
-  }
-  
-  // 单段文本合成（用于长文本分段）
-  await speakSingleSegment(text, speaker);
-}
 
-// 合成单段文本
-async function speakSingleSegment(text, speaker) {
-  // 如果该角色未配置参考音频，使用 husband 的配置（默认男声）
-  var config = MODEL_CONFIG[speaker];
-  if (!config || !config.refer_wav_path) {
+  // ── 在分段播放之前统一切换一次模型，避免每段都切换 ──
+  var speakConfig = MODEL_CONFIG[speaker];
+  if (!speakConfig || !speakConfig.refer_wav_path) {
     console.log(`[TTS] ${speaker} 未配置声音，使用 husband 的声音`);
-    config = MODEL_CONFIG['husband'];
+    speakConfig = MODEL_CONFIG['husband'];
   }
-  
-  // 检查是否仍然没有配置
-  if (!config || !config.refer_wav_path) {
+  if (!speakConfig || !speakConfig.refer_wav_path) {
     console.error('[TTS] 没有可用的参考音频配置');
     fallbackSpeakText(text, speaker);
     return;
   }
-  
-  // 先切换模型
+
   const modelSwitched = await switchModel(speaker);
   if (!modelSwitched) {
     console.warn('[TTS] 模型切换失败，使用浏览器 TTS 回退');
     fallbackSpeakText(text, speaker);
     return;
   }
-  
+
+  // 文本分段：长文本分段合成，避免等待时间过长
+  const segments = splitTextIntoSegments(text, 80);
+  if (segments.length > 1) {
+    console.log(`[TTS] 文本已分段: ${segments.length} 段`);
+    for (let i = 0; i < segments.length; i++) {
+      console.log(`[TTS] 播放第 ${i + 1}/${segments.length} 段`);
+      await speakSingleSegment(segments[i], speaker, speakConfig);
+    }
+    return;
+  }
+
+  // 单段文本合成
+  await speakSingleSegment(text, speaker, speakConfig);
+}
+
+// 合成单段文本（config 由调用方传入，避免重复切换模型）
+async function speakSingleSegment(text, speaker, config) {
+  // 兼容旧调用（未传 config 时自己查）
+  if (!config) {
+    config = MODEL_CONFIG[speaker] || MODEL_CONFIG['husband'];
+  }
+  if (!config || !config.refer_wav_path) {
+    console.error('[TTS] 没有可用的参考音频配置');
+    fallbackSpeakText(text, speaker);
+    return;
+  }
+
   var params = {
     text: text,
     text_lang: 'zh',
