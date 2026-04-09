@@ -1375,21 +1375,53 @@
             { type: 'modern', title: '乡愁', dynasty: '现代', author: '余光中',
               content: '小时候，\n乡愁是一枚小小的邮票，\n我在这头，\n母亲在那头。\n长大后，\n乡愁是一张窄窄的船票，\n我在这头，\n新娘在那头。',
               highlight: '乡愁是一枚小小的邮票，我在这头，母亲在那头' },
-            { type: 'modern', title: '镜中', dynasty: '现代', author: '张枣',
-              content: '只要想起一生中后悔的事\n梅花便落了下来\n比如看她游泳到河的另一岸\n比如登上一株松木梯子',
-              highlight: '只要想起一生中后悔的事，梅花便落了下来' },
-        ];
+  { type: 'modern', title: '镜中', dynasty: '现代', author: '张枣',
+    content: '只要想起一生中后悔的事\n梅花便落了下来\n比如看她游泳到河的另一岸\n比如登上一株松木梯子',
+    highlight: '只要想起一生中后悔的事，梅花便落了下来' },
+  // ---- 外国诗 ----
+  { type: 'foreign', title: '十四行诗 18', dynasty: '英', author: '莎士比亚（译）',
+    content: '我可否将你比作夏日？\n你比夏日更可爱，更温婉。\n狂风会摧折五月的娇蕾，\n夏日的租期又太过短暂。',
+    highlight: '我可否将你比作夏日？你比夏日更可爱，更温婉' },
+  { type: 'foreign', title: '面朝大海', dynasty: '德', author: '荷尔德林（译）',
+    content: '人生充满劳绩，\n但诗意地，\n人栖居在这片大地之上。',
+    highlight: '人生充满劳绩，但诗意地，人栖居在这片大地之上' },
+  { type: 'foreign', title: '礼物', dynasty: '波兰', author: '辛波斯卡（译）',
+    content: '如此幸福的一天，\n雾一早就散了，\n我在花园里干活。\n蜂鸟停在忍冬花上。',
+    highlight: '如此幸福的一天，雾一早就散了，我在花园里干活' },
+  { type: 'foreign', title: '雪', dynasty: '土耳其', author: '塔朗吉（译）',
+    content: '去什么地方呢？\n这么晚了，\n美丽的火车，\n孤独的火车？\n凄苦是你汽笛的声音，\n令人记起很多事情。',
+    highlight: '去什么地方呢？这么晚了，美丽的火车，孤独的火车' },
+  { type: 'foreign', title: '你应该努力追求幸福', dynasty: '美', author: '德鲁·米斯蒂（译）',
+    content: '在嘈杂和疲惫中，\n你再次深呼吸，\n然后对自己说：\n你应该努力追求幸福。',
+    highlight: '你应该努力追求幸福' },
+  { type: 'foreign', title: '在森林中沉睡', dynasty: '俄', author: '叶赛宁（译）',
+    content: '金黄的落叶翻飞，\n在秋日的森林里。\n我沉沉睡去，\n在大地温暖的怀抱里。',
+    highlight: '金黄的落叶翻飞，在秋日的森林里，我沉沉睡去' },
+  { type: 'foreign', title: '飞鸟集 6', dynasty: '印度', author: '泰戈尔（译）',
+    content: '世界以痛吻我，\n要我报之以歌。',
+    highlight: '世界以痛吻我，要我报之以歌' },
+  { type: 'foreign', title: '生如夏花', dynasty: '印度', author: '泰戈尔（译）',
+    content: '生如夏花之绚烂，\n死如秋叶之静美。',
+    highlight: '生如夏花之绚烂，死如秋叶之静美' },
+  { type: 'foreign', title: '天真的预言', dynasty: '英', author: '布莱克（译）',
+    content: '一沙一世界，\n一花一天堂。\n掌中握无限，\n刹那即永恒。',
+    highlight: '一沙一世界，一花一天堂' },
+  { type: 'foreign', title: '春', dynasty: '俄', author: '丘特切夫（译）',
+    content: '别以为，春天只是季节——\n它是灵魂的苏醒，\n是大地情欲的苏醒，\n是宇宙的青春初醒。',
+    highlight: '别以为，春天只是季节，它是灵魂的苏醒' },
+];
 
         function loadPoem() {
             const el = document.getElementById('poemContent');
             const poem = POEMS[Math.floor(Math.random() * POEMS.length)];
-            const isClassical = poem.type === 'classical';
 
-            const label = isClassical
+            const label = poem.type === 'classical'
                 ? `<div style="font-size:11px;color:#aaa;margin-bottom:8px;">古诗 · ${poem.dynasty}</div>`
+                : poem.type === 'foreign'
+                ? `<div style="font-size:11px;color:#9ab;margin-bottom:8px;">外国诗</div>`
                 : `<div style="font-size:11px;color:#bbb;margin-bottom:8px;">现代诗</div>`;
 
-            const header = `<div style="font-size:13px;color:#b07070;margin-bottom:10px;font-weight:600;">「${poem.title}」${poem.dynasty === '现代' ? '' : poem.dynasty + ' · '}${poem.author}</div>`;
+            const header = `<div style="font-size:13px;color:#b07070;margin-bottom:10px;font-weight:600;">「${poem.title}」${poem.type === 'modern' ? '' : poem.dynasty + ' · '}${poem.author}</div>`;
 
             const body = poem.content.replace(/\n/g, '<br>');
             const highlight = `<div style="margin-top:10px;font-size:12px;color:#d49a9a;font-style:italic;">✦ ${poem.highlight}</div>`;
