@@ -1281,36 +1281,120 @@
                 `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${weekdays[now.getDay()]}`;
         }
 
-        // ========== 每日古诗词（今日诗词 API，每日推荐一首完整诗） ==========
-        async function loadPoem() {
+        // ========== 每日诗词（本地诗词库随机抽取，古诗/现代诗混排） ==========
+        const POEMS = [
+            // ---- 古诗词 ----
+            { type: 'classical', title: '静夜思', dynasty: '唐', author: '李白',
+              content: '床前明月光，疑是地上霜。\n举头望明月，低头思故乡。',
+              highlight: '举头望明月，低头思故乡' },
+            { type: 'classical', title: '相思', dynasty: '唐', author: '王维',
+              content: '红豆生南国，春来发几枝。\n愿君多采撷，此物最相思。',
+              highlight: '愿君多采撷，此物最相思' },
+            { type: 'classical', title: '春晓', dynasty: '唐', author: '孟浩然',
+              content: '春眠不觉晓，处处闻啼鸟。\n夜来风雨声，花落知多少。',
+              highlight: '春眠不觉晓，处处闻啼鸟' },
+            { type: 'classical', title: '登鹳雀楼', dynasty: '唐', author: '王之涣',
+              content: '白日依山尽，黄河入海流。\n欲穷千里目，更上一层楼。',
+              highlight: '欲穷千里目，更上一层楼' },
+            { type: 'classical', title: '题都城南庄', dynasty: '唐', author: '崔护',
+              content: '去年今日此门中，人面桃花相映红。\n人面不知何处去，桃花依旧笑春风。',
+              highlight: '人面不知何处去，桃花依旧笑春风' },
+            { type: 'classical', title: '枫桥夜泊', dynasty: '唐', author: '张继',
+              content: '月落乌啼霜满天，江枫渔火对愁眠。\n姑苏城外寒山寺，夜半钟声到客船。',
+              highlight: '月落乌啼霜满天，江枫渔火对愁眠' },
+            { type: 'classical', title: '暮江吟', dynasty: '唐', author: '白居易',
+              content: '一道残阳铺水中，半江瑟瑟半江红。\n可怜九月初三夜，露似真珠月似弓。',
+              highlight: '可怜九月初三夜，露似真珠月似弓' },
+            { type: 'classical', title: '山中', dynasty: '唐', author: '王维',
+              content: '荆溪白石出，天寒红叶稀。\n山路元无雨，空翠湿人衣。',
+              highlight: '山路元无雨，空翠湿人衣' },
+            { type: 'classical', title: '夜雨寄北', dynasty: '唐', author: '李商隐',
+              content: '君问归期未有期，巴山夜雨涨秋池。\n何当共剪西窗烛，却话巴山夜雨时。',
+              highlight: '何当共剪西窗烛，却话巴山夜雨时' },
+            { type: 'classical', title: '宿建德江', dynasty: '唐', author: '孟浩然',
+              content: '移舟泊烟渚，日暮客愁新。\n野旷天低树，江清月近人。',
+              highlight: '野旷天低树，江清月近人' },
+            { type: 'classical', title: '乌衣巷', dynasty: '唐', author: '刘禹锡',
+              content: '朱雀桥边野草花，乌衣巷口夕阳斜。\n旧时王谢堂前燕，飞入寻常百姓家。',
+              highlight: '旧时王谢堂前燕，飞入寻常百姓家' },
+            { type: 'classical', title: '竹里馆', dynasty: '唐', author: '王维',
+              content: '独坐幽篁里，弹琴复长啸。\n深林人不知，明月来相照。',
+              highlight: '深林人不知，明月来相照' },
+            { type: 'classical', title: '杂诗', dynasty: '唐', author: '王维',
+              content: '君自故乡来，应知故乡事。\n来日绮窗前，寒梅著花未？',
+              highlight: '来日绮窗前，寒梅著花未' },
+            { type: 'classical', title: '渡汉江', dynasty: '唐', author: '宋之问',
+              content: '岭外音书断，经冬复历春。\n近乡情更怯，不敢问来人。',
+              highlight: '近乡情更怯，不敢问来人' },
+            { type: 'classical', title: '闺怨', dynasty: '唐', author: '王昌龄',
+              content: '闺中少妇不知愁，春日凝妆上翠楼。\n忽见陌头杨柳色，悔教夫婿觅封侯。',
+              highlight: '忽见陌头杨柳色，悔教夫婿觅封侯' },
+            { type: 'classical', title: '凉州词', dynasty: '唐', author: '王翰',
+              content: '葡萄美酒夜光杯，欲饮琵琶马上催。\n醉卧沙场君莫笑，古来征战几人回。',
+              highlight: '醉卧沙场君莫笑，古来征战几人回' },
+            { type: 'classical', title: '出塞', dynasty: '唐', author: '王昌龄',
+              content: '秦时明月汉时关，万里长征人未还。\n但使龙城飞将在，不教胡马度阴山。',
+              highlight: '但使龙城飞将在，不教胡马度阴山' },
+            { type: 'classical', title: '山行', dynasty: '唐', author: '杜牧',
+              content: '远上寒山石径斜，白云生处有人家。\n停车坐爱枫林晚，霜叶红于二月花。',
+              highlight: '霜叶红于二月花' },
+            { type: 'classical', title: '泊秦淮', dynasty: '唐', author: '杜牧',
+              content: '烟笼寒水月笼沙，夜泊秦淮近酒家。\n商女不知亡国恨，隔江犹唱后庭花。',
+              highlight: '商女不知亡国恨，隔江犹唱后庭花' },
+            { type: 'classical', title: '清明', dynasty: '唐', author: '杜牧',
+              content: '清明时节雨纷纷，路上行人欲断魂。\n借问酒家何处有，牧童遥指杏花村。',
+              highlight: '清明时节雨纷纷，路上行人欲断魂' },
+            // ---- 现代诗 ----
+            { type: 'modern', title: '雨巷', dynasty: '现代', author: '戴望舒',
+              content: '撑着油纸伞，独自\n彷徨在悠长、悠长\n又寂寥的雨巷，\n我希望逢着\n一个丁香一样地\n结着愁怨的姑娘。',
+              highlight: '我希望逢着，一个丁香一样地结着愁怨的姑娘' },
+            { type: 'modern', title: '面朝大海，春暖花开', dynasty: '现代', author: '海子',
+              content: '从明天起，做一个幸福的人\n喂马、劈柴，周游世界\n从明天起，关心粮食和蔬菜\n我有一所房子，面朝大海，春暖花开',
+              highlight: '我有一所房子，面朝大海，春暖花开' },
+            { type: 'modern', title: '一代人', dynasty: '现代', author: '顾城',
+              content: '黑夜给了我黑色的眼睛，\n我却用它寻找光明。',
+              highlight: '黑夜给了我黑色的眼睛，我却用它寻找光明' },
+            { type: 'modern', title: '断章', dynasty: '现代', author: '卞之琳',
+              content: '你站在桥上看风景，\n看风景的人在楼上看你。\n明月装饰了你的窗子，\n你装饰了别人的梦。',
+              highlight: '你站在桥上看风景，看风景的人在楼上看你' },
+            { type: 'modern', title: '远方', dynasty: '现代', author: '安德鲁·怀斯（译）',
+              content: '那天是如此辽远\n辽远地展着翅膀\n即使爱是飞翔的\n小鸟也追不上它',
+              highlight: '那天是如此辽远，辽远地展着翅膀' },
+            { type: 'modern', title: '门前', dynasty: '现代', author: '顾城',
+              content: '草在结它的种子\n风在摇它的叶子\n我们站着，不说话\n就十分美好',
+              highlight: '我们站着，不说话，就十分美好' },
+            { type: 'modern', title: '致橡树', dynasty: '现代', author: '舒婷',
+              content: '我必须是你近旁的一株木棉，\n作为树的形象和你站在一起。\n根，紧握在地下；\n叶，相触在云里。',
+              highlight: '根，紧握在地下；叶，相触在云里' },
+            { type: 'modern', title: '偶然', dynasty: '现代', author: '徐志摩',
+              content: '我是天空里的一片云，\n偶尔投影在你的波心——\n你不必讶异，\n更无须欢喜——\n在转瞬间消灭了踪影。',
+              highlight: '偶尔投影在你的波心' },
+            { type: 'modern', title: '你是人间的四月天', dynasty: '现代', author: '林徽因',
+              content: '我说你是人间的四月天；\n笑响点亮了四面风；\n轻灵在春的光艳中交舞着变。',
+              highlight: '你是人间的四月天' },
+            { type: 'modern', title: '乡愁', dynasty: '现代', author: '余光中',
+              content: '小时候，\n乡愁是一枚小小的邮票，\n我在这头，\n母亲在那头。\n长大后，\n乡愁是一张窄窄的船票，\n我在这头，\n新娘在那头。',
+              highlight: '乡愁是一枚小小的邮票，我在这头，母亲在那头' },
+            { type: 'modern', title: '镜中', dynasty: '现代', author: '张枣',
+              content: '只要想起一生中后悔的事\n梅花便落了下来\n比如看她游泳到河的另一岸\n比如登上一株松木梯子',
+              highlight: '只要想起一生中后悔的事，梅花便落了下来' },
+        ];
+
+        function loadPoem() {
             const el = document.getElementById('poemContent');
-            try {
-                // 1. 先获取 Token
-                const tokenResp = await fetch('https://v2.jinrishici.com/token');
-                const tokenData = await tokenResp.json();
-                const token = tokenData.data;
+            const poem = POEMS[Math.floor(Math.random() * POEMS.length)];
+            const isClassical = poem.type === 'classical';
 
-                // 2. 用 Token 获取今日诗词
-                const poemResp = await fetch('https://v2.jinrishici.com/sentence', {
-                    headers: { 'X-User-Token': token }
-                });
-                const poemData = await poemResp.json();
-                const poem = poemData.data;
-                const origin = poem.origin;
+            const label = isClassical
+                ? `<div style="font-size:11px;color:#aaa;margin-bottom:8px;">古诗 · ${poem.dynasty}</div>`
+                : `<div style="font-size:11px;color:#bbb;margin-bottom:8px;">现代诗</div>`;
 
-                // 标题 + 朝代 + 作者
-                const header = `<div style="font-size:12px;color:#999;margin-bottom:10px;">「${origin.title}」${origin.dynasty} · ${origin.author}</div>`;
+            const header = `<div style="font-size:13px;color:#b07070;margin-bottom:10px;font-weight:600;">「${poem.title}」${poem.dynasty === '现代' ? '' : poem.dynasty + ' · '}${poem.author}</div>`;
 
-                // 完整诗文（origin.content），用空格替代换行，保持排版整齐
-                const body = origin.content.replace(/\n/g, '　');  // 全角空格更美观
+            const body = poem.content.replace(/\n/g, '<br>');
+            const highlight = `<div style="margin-top:10px;font-size:12px;color:#d49a9a;font-style:italic;">✦ ${poem.highlight}</div>`;
 
-                // 精选名句（data.content）
-                const highlight = `<div style="margin-top:10px;font-size:12px;color:#d49a9a;font-style:italic;">✦ ${poem.content}</div>`;
-
-                el.innerHTML = header + body + highlight;
-            } catch (e) {
-                el.innerHTML = '<div style="color:#aaa;font-size:13px;">今日诗词加载中…</div>';
-            }
+            el.innerHTML = label + header + body + highlight;
         }
 
         // ========== 每日话题 ==========
