@@ -1281,22 +1281,35 @@
                 `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${weekdays[now.getDay()]}`;
         }
 
-        // ========== 每日古诗词（网络动态获取） ==========
+        // ========== 每日古诗词（今日诗词 API，每日推荐一首完整诗） ==========
         async function loadPoem() {
+            const el = document.getElementById('poemContent');
             try {
-                const resp = await fetch('https://v2.jinrishici.com/info.json');
-                const data = await resp.json();
-                const poem = data.data;
+                // 1. 先获取 Token
+                const tokenResp = await fetch('https://v2.jinrishici.com/token');
+                const tokenData = await tokenResp.json();
+                const token = tokenData.data;
+
+                // 2. 用 Token 获取今日诗词
+                const poemResp = await fetch('https://v2.jinrishici.com/sentence', {
+                    headers: { 'X-User-Token': token }
+                });
+                const poemData = await poemResp.json();
+                const poem = poemData.data;
+                const origin = poem.origin;
 
                 // 标题 + 朝代 + 作者
-                const header = `<div style="font-size:12px;color:#999;margin-bottom:10px;">「${poem.title}」${poem.dynasty} · ${poem.author}</div>`;
-                // 正文（换行转 <br>）
-                const body = poem.content.replace(/\n/g, '<br>');
+                const header = `<div style="font-size:12px;color:#999;margin-bottom:10px;">「${origin.title}」${origin.dynasty} · ${origin.author}</div>`;
 
-                document.getElementById('poemContent').innerHTML = header + body;
+                // 完整诗文（origin.content），用空格替代换行，保持排版整齐
+                const body = origin.content.replace(/\n/g, '　');  // 全角空格更美观
+
+                // 精选名句（data.content）
+                const highlight = `<div style="margin-top:10px;font-size:12px;color:#d49a9a;font-style:italic;">✦ ${poem.content}</div>`;
+
+                el.innerHTML = header + body + highlight;
             } catch (e) {
-                document.getElementById('poemContent').innerHTML =
-                    '<div style="color:#aaa;font-size:13px;">今日诗词加载中…</div>';
+                el.innerHTML = '<div style="color:#aaa;font-size:13px;">今日诗词加载中…</div>';
             }
         }
 
