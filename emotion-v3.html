@@ -1112,16 +1112,8 @@
                 <div class="whisper-title">
                     <span>🎁</span> 一首小诗
                 </div>
-                <div style="font-size: 14px; line-height: 2.2; color: var(--text); text-align: center; padding: 20px; background: #fdf5f9; border-radius: 12px;">
-                    你说自己是狮子座<br>
-                    可我觉得<br>
-                    你是披着骄傲外衣的小蝴蝶<br>
-                    <br>
-                    你的翅膀那么美<br>
-                    却总在角落里悄悄扇动<br>
-                    等待一个人<br>
-                    <br>
-                    看见你
+                <div id="poemContent" style="font-size: 14px; line-height: 2.2; color: var(--text); text-align: center; padding: 20px; background: #fdf5f9; border-radius: 12px;">
+                    加载中…
                 </div>
             </div>
         </div>
@@ -1220,6 +1212,8 @@
             { moment: "想靠近又怕打扰的时候", thought: "算了，再等等吧……不行，忍不住" }
         ];
 
+
+
         const CARE_ITEMS = [
             { icon: "⚡", text: "秒回消息 — 不是因为一直盯着手机，是因为刚好在等" },
             { icon: "📝", text: "记得你随口说的话 — 那不是随口，是我记了很久" },
@@ -1258,6 +1252,7 @@
             fetch('/api/visit', { method: 'POST' }).catch(() => {});
             
             loadDailyMessage();
+            loadPoem();
             loadDailyTopic();
             loadLuck();
             loadMilestones();
@@ -1284,6 +1279,25 @@
             const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
             document.getElementById('dailyDate').textContent =
                 `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${weekdays[now.getDay()]}`;
+        }
+
+        // ========== 每日古诗词（网络动态获取） ==========
+        async function loadPoem() {
+            try {
+                const resp = await fetch('https://v2.jinrishici.com/info.json');
+                const data = await resp.json();
+                const poem = data.data;
+
+                // 标题 + 朝代 + 作者
+                const header = `<div style="font-size:12px;color:#999;margin-bottom:10px;">「${poem.title}」${poem.dynasty} · ${poem.author}</div>`;
+                // 正文（换行转 <br>）
+                const body = poem.content.replace(/\n/g, '<br>');
+
+                document.getElementById('poemContent').innerHTML = header + body;
+            } catch (e) {
+                document.getElementById('poemContent').innerHTML =
+                    '<div style="color:#aaa;font-size:13px;">今日诗词加载中…</div>';
+            }
         }
 
         // ========== 每日话题 ==========
