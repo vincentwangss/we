@@ -870,7 +870,7 @@ function renderMessage(msg) {
   
   // Auto-speak AI messages if TTS is enabled
   if (msg.isAI && typeof ttsEnabled !== 'undefined' && ttsEnabled) {
-    setTimeout(() => speakText(msg.content, msg.speaker), 100);
+    ttsEnqueue(msg.content, msg.speaker);
   }
 }
 
@@ -1037,6 +1037,70 @@ var ttsEnabled = false;
 var recognition = null;
 var isRecording = false;
 var currentAudio = null;
+
+// ── TTS 队列：保证多条消息顺序播放 ──
+var ttsQueue = [];       // 待播放队列 [{text, speaker}]
+var ttsPlaying = false;  // 是否正在播放
+
+async function ttsEnqueue(text, speaker) {
+  ttsQueue.push({ text, speaker });
+  if (!ttsPlaying) await ttsProcessQueue();
+}
+
+async function ttsProcessQueue() {
+  if (ttsPlaying || ttsQueue.length === 0) return;
+  ttsPlaying = true;
+  while (ttsQueue.length > 0) {
+    const item = ttsQueue.shift();
+    try { await speakText(item.text, item.speaker); } catch(e) {}
+  }
+  ttsPlaying = false;
+}
+
+// ── 文本预处理：清理不适合 TTS 的内容 ──
+function cleanTextForTTS(text) {
+  if (!text) return '';
+
+  // 0. HTML 实体 & 标签（<br>、<p>、<b> 等）
+  text = text.replace(/<br\s*\/?>/gi, ' ');   // <br> 换行转空格
+  text = text.replace(/<\/?(p|div|li|h[1-6])[^>]*>/gi, ' '); // 块级标签转空格
+  text = text.replace(/<[^>]+>/g, '');        // 清除所有剩余 HTML 标签
+  text = text.replace(/&amp;/g, '&');
+  text = text.replace(/&lt;/g, '');
+  text = text.replace(/&gt;/g, '');
+  text = text.replace(/&nbsp;/g, ' ');
+  text = text.replace(/&[a-zA-Z]+;/g, '');   // 其他 HTML 实体
+
+  // 1. 零宽字符 & 乱码
+  text = text.replace(/\uFFFD/g, '');
+  text = text.replace(/[\u200B-\u200D\uFEFF]/g, '');
+
+  // 2. Markdown 符号
+  text = text.replace(/#{1,6}\s*/g, '');          // 标题 # ## ###
+  text = text.replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1'); // **粗体** *斜体*
+  text = text.replace(/_{1,2}([^_]+)_{1,2}/g, '$1');   // __下划线__
+  text = text.replace(/~~([^~]+)~~/g, '$1');       // ~~删除线~~
+  text = text.replace(/`{1,3}[^`]*`{1,3}/g, '');  // `代码` ```代码块```
+  text = text.replace(/^\s*[-*+]\s+/gm, '');       // 列表 - * +
+  text = text.replace(/^\s*\d+\.\s+/gm, '');       // 有序列表 1.
+  text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); // [链接](url)
+  text = text.replace(/!\[([^\]]*)\]\([^)]+\)/g, ''); // ![图片](url)
+  text = text.replace(/^>\s+/gm, '');              // 引用 >
+  text = text.replace(/^-{3,}$/gm, '');            // 分割线 ---
+  text = text.replace(/\|/g, '');                  // 表格竖线
+
+  // 3. URL
+  text = text.replace(/https?:\/\/[^\s]+/g, '');
+
+  // 4. 特殊标点/符号（保留中文标点）
+  text = text.replace(/[<>{}[\]\\\/^~]/g, '');
+
+  // 5. 多余空白（含 \r\n 换行）
+  text = text.replace(/[\r\n\t]+/g, ' ');
+  text = text.replace(/\s+/g, ' ').trim();
+
+  return text;
+}
 
 // 文本翻译：网络用语和表情符号转语气词
 function translateTextForSpeech(text) {
@@ -1330,11 +1394,13 @@ function toggleTTS() {
   if (ttsEnabled) {
     btn.classList.add('active');
     status.textContent = '语音播报已开启';
-    console.log('[TTS] 准备测试语音...');
     speakText('语音播报已开启', 'husband');
   } else {
     btn.classList.remove('active');
     status.textContent = '点击开启语音播报';
+    // 清空队列，停止当前播放
+    ttsQueue = [];
+    ttsPlaying = false;
     if (currentAudio) {
       currentAudio.pause();
       currentAudio = null;
@@ -1375,7 +1441,7 @@ async function speakText(text, speaker, force = false) {
   console.log(`[TTS] 调用 speakText: ttsEnabled=${ttsEnabled}, text=${text?.substring(0, 30)}, speaker=${speaker}`);
   
   if (!force && !ttsEnabled) {
-    console.log('[TTS] 语音播报未开启，跳过 (加 force=true 可强制播放)');
+    console.log('[TTS] 语音播报未开启，跳过');
     return;
   }
   if (!text) {
@@ -1383,58 +1449,69 @@ async function speakText(text, speaker, force = false) {
     return;
   }
   
-  // 翻译网络用语和表情符号
+  // Step1: 清理 markdown、URL、特殊符号
+  text = cleanTextForTTS(text);
+  // Step2: 翻译网络用语和表情符号
   text = translateTextForSpeech(text);
-  console.log(`[TTS] 翻译后文本: ${text.substring(0, 30)}...`);
   
-  console.log(`[TTS] 开始语音合成: speaker=${speaker}, text=${text.substring(0, 30)}...`);
+  if (!text) {
+    console.log('[TTS] 预处理后文本为空，跳过');
+    return;
+  }
+  console.log(`[TTS] 预处理后文本: ${text.substring(0, 50)}...`);
   
   // Cancel previous audio
   if (currentAudio) {
     currentAudio.pause();
     currentAudio = null;
   }
-  
-  // 文本分段：长文本分段合成，避免等待时间过长
-  const segments = splitTextIntoSegments(text, 80);
-  if (segments.length > 1) {
-    console.log(`[TTS] 文本已分段: ${segments.length} 段`);
-    // 逐段播放
-    for (let i = 0; i < segments.length; i++) {
-      console.log(`[TTS] 播放第 ${i + 1}/${segments.length} 段`);
-      await speakSingleSegment(segments[i], speaker);
-    }
-    return;
-  }
-  
-  // 单段文本合成（用于长文本分段）
-  await speakSingleSegment(text, speaker);
-}
 
-// 合成单段文本
-async function speakSingleSegment(text, speaker) {
-  // 如果该角色未配置参考音频，使用 husband 的配置（默认男声）
-  var config = MODEL_CONFIG[speaker];
-  if (!config || !config.refer_wav_path) {
+  // ── 在分段播放之前统一切换一次模型，避免每段都切换 ──
+  var speakConfig = MODEL_CONFIG[speaker];
+  if (!speakConfig || !speakConfig.refer_wav_path) {
     console.log(`[TTS] ${speaker} 未配置声音，使用 husband 的声音`);
-    config = MODEL_CONFIG['husband'];
+    speakConfig = MODEL_CONFIG['husband'];
   }
-  
-  // 检查是否仍然没有配置
-  if (!config || !config.refer_wav_path) {
+  if (!speakConfig || !speakConfig.refer_wav_path) {
     console.error('[TTS] 没有可用的参考音频配置');
     fallbackSpeakText(text, speaker);
     return;
   }
-  
-  // 先切换模型
+
   const modelSwitched = await switchModel(speaker);
   if (!modelSwitched) {
     console.warn('[TTS] 模型切换失败，使用浏览器 TTS 回退');
     fallbackSpeakText(text, speaker);
     return;
   }
-  
+
+  // 文本分段：长文本分段合成，避免等待时间过长
+  const segments = splitTextIntoSegments(text, 80);
+  if (segments.length > 1) {
+    console.log(`[TTS] 文本已分段: ${segments.length} 段`);
+    for (let i = 0; i < segments.length; i++) {
+      console.log(`[TTS] 播放第 ${i + 1}/${segments.length} 段`);
+      await speakSingleSegment(segments[i], speaker, speakConfig);
+    }
+    return;
+  }
+
+  // 单段文本合成
+  await speakSingleSegment(text, speaker, speakConfig);
+}
+
+// 合成单段文本（config 由调用方传入，避免重复切换模型）
+async function speakSingleSegment(text, speaker, config) {
+  // 兼容旧调用（未传 config 时自己查）
+  if (!config) {
+    config = MODEL_CONFIG[speaker] || MODEL_CONFIG['husband'];
+  }
+  if (!config || !config.refer_wav_path) {
+    console.error('[TTS] 没有可用的参考音频配置');
+    fallbackSpeakText(text, speaker);
+    return;
+  }
+
   var params = {
     text: text,
     text_lang: 'zh',
