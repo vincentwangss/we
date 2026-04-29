@@ -9,8 +9,41 @@ const session = require('express-session');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const webpush = require('web-push');
-const { initDB } = require('./db');
 require('dotenv').config();
+
+// Database: use PostgreSQL (Supabase) if DATABASE_URL is set, otherwise SQLite
+let db;
+if (process.env.DATABASE_URL) {
+  const { Pool } = require('pg');
+  db = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  });
+  console.log('[DB] Using PostgreSQL (Supabase)');
+} else {
+  const { initDB } = require('./db');
+  db = initDB(path.join(__dirname, 'data', 'chat.db'));
+  console.log('[DB] Using SQLite (local)');
+}
+
+// Unified database query helper
+const sql = {
+  all: async (query, params = []) => {
+    if (process.env.DATABASE_URL) {
+      const res = await db.query(query, params);
+      return res.rows;
+    } else {
+      return db.prepare(query).all(...params);
+    }
+  },
+  run: async (query, params = []) => {
+    if (process.env.DATABASE_URL) {
+      return db.query(query, params);
+    } else {
+      return db.prepare(query).run(...params);
+    }
+  }
+};
 
 const app = express();
 const server = http.createServer(app);
@@ -138,45 +171,64 @@ const DEFAULT_WIFE_PROMPT = `你扮演syq.（沈郁清），一个独立理性�
 let chatHistory = []; // {id, type, speaker, content, timestamp, isAI}
 let connectedUsers = new Map(); // socketId -> {id, name, role, joinTime}
 
-// Load chat history from database (called after chatDB is initialized)
-function loadChatHistory() {
-  try {
-    const rows = chatDB.prepare('SELECT * FROM chat_messages ORDER BY created_at ASC LIMIT 100').all();
-    chatHistory = rows.map(row => ({
-      id: row.id,
-      name: row.name,
-      role: row.role,
-      content: row.content,
-      time: row.time,
-      read: row.read === 1,
-      created_at: row.created_at
-    }));
-    console.log(`[DB] Loaded ${chatHistory.length} chat messages from database`);
-  } catch (e) {
-    console.error('[DB] Failed to load chat history:', e);
-  }
-}
+// Database helper functions (unified API for SQLite and PostgreSQL)
+const dbHelper = {
+  // Load chat history from database
+  loadChatHistory: async function() {
+    try {
+      const rows = await sql.all('SELECT * FROM chat_messages ORDER BY created_at ASC LIMIT 100', []);
+      chatHistory = rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        role: row.role,
+        content: row.content,
+        time: row.time,
+        read: row.read === 1,
+        created_at: row.created_at
+      }));
+      console.log(`[DB] Loaded ${chatHistory.length} chat messages`);
+    } catch (e) {
+      console.error('[DB] Failed to load chat history:', e);
+    }
+  },
 
-// Save message to database
-function saveChatMessage(message) {
-  try {
-    chatDB.prepare(`
-      INSERT OR REPLACE INTO chat_messages (id, name, role, content, time, read, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(message.id, message.name, message.role, message.content, message.time, message.read ? 1 : 0, message.created_at || new Date().toISOString());
-  } catch (e) {
-    console.error('[DB] Failed to save message:', e);
-  }
-}
+  // Save message to database
+  saveChatMessage: async function(message) {
+    try {
+      if (process.env.DATABASE_URL) {
+        // PostgreSQL
+        await sql.run(
+          `INSERT INTO chat_messages (id, name, role, content, time, read, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (id) DO UPDATE SET
+           name = EXCLUDED.name, role = EXCLUDED.role, content = EXCLUDED.content,
+           time = EXCLUDED.time, read = EXCLUDED.read`,
+          [message.id, message.name, message.role, message.content, message.time, message.read ? 1 : 0, message.created_at || new Date().toISOString()]
+        );
+      } else {
+        // SQLite
+        await sql.run(
+          `INSERT OR REPLACE INTO chat_messages (id, name, role, content, time, read, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [message.id, message.name, message.role, message.content, message.time, message.read ? 1 : 0, message.created_at || new Date().toISOString()]
+        );
+      }
+    } catch (e) {
+      console.error('[DB] Failed to save message:', e);
+    }
+  },
 
-// Update message read status in database
-function updateChatMessageRead(msgId) {
-  try {
-    chatDB.prepare('UPDATE chat_messages SET read = 1 WHERE id = ?').run(msgId);
-  } catch (e) {
-    console.error('[DB] Failed to update read status:', e);
+
+  // Update message read status
+  updateChatMessageRead: async function(msgId) {
+    try {
+      await sql.run('UPDATE chat_messages SET read = 1 WHERE id = $1', [msgId]);
+    } catch (e) {
+      console.error('[DB] Failed to update read status:', e);
+    }
   }
-}
+};
+
 let aiConfig = {
   provider: 'deepseek',
   husbandPrompt: DEFAULT_HUSBAND_PROMPT,
@@ -188,12 +240,10 @@ let aiConfig = {
 let autoTimer = null;
 let isGenerating = false;
 
-// ==================== MESSAGE CHAT CONFIG ====================
-// Initialize SQLite database
-const chatDB = initDB(path.join(__dirname, 'data', 'chat.db'));
-
 // Initialize: load chat history from DB
-loadChatHistory();
+(async () => {
+  await dbHelper.loadChatHistory();
+})();
 
 // Hardcoded accounts for couple chat
 const ACCOUNTS = {
@@ -1241,23 +1291,21 @@ app.post('/api/message/logout', (req, res) => {
 });
 
 // Message history (paginated)
-app.get('/api/message/history', requireAuth, (req, res) => {
+app.get('/api/message/history', requireAuth, async (req, res) => {
   const before = req.query.before || null;
   const limit = parseInt(req.query.limit) || 30;
-  const userId = req.session.userId;
-  const partnerId = userId === 'husband' ? 'wife' : 'husband';
 
-  let stmt, messages;
+  let messages;
   if (before) {
-    stmt = chatDB.prepare(
-      `SELECT * FROM chat_messages WHERE created_at < ? ORDER BY created_at DESC LIMIT ?`
+    messages = await sql.all(
+      `SELECT * FROM chat_messages WHERE created_at < $1 ORDER BY created_at DESC LIMIT $2`,
+      [before, limit]
     );
-    messages = stmt.all(before, limit);
   } else {
-    stmt = chatDB.prepare(
-      `SELECT * FROM chat_messages ORDER BY created_at ASC LIMIT ?`
+    messages = await sql.all(
+      `SELECT * FROM chat_messages ORDER BY created_at ASC LIMIT $1`,
+      [limit]
     );
-    messages = stmt.all(limit);
   }
   
   // Transform to API response format
@@ -1275,21 +1323,24 @@ app.get('/api/message/history', requireAuth, (req, res) => {
 });
 
 // Mark messages as read
-app.post('/api/message/read', requireAuth, (req, res) => {
+app.post('/api/message/read', requireAuth, async (req, res) => {
   const userId = req.session.userId;
   const { messageIds } = req.body;
 
   if (messageIds && messageIds.length > 0) {
     const now = new Date().toISOString();
-    const placeholders = messageIds.map(() => '?').join(',');
-    chatDB.prepare(
-      `UPDATE messages SET status = 'read', read_at = ? WHERE id IN (${placeholders}) AND receiver_id = ? AND status != 'read'`
-    ).run(now, ...messageIds, userId);
+    // Use positional params ($1, $2, etc.) for PostgreSQL compatibility
+    const ids = messageIds.map((_, i) => `$${i + 3}`).join(',');
+    await sql.run(
+      `UPDATE messages SET status = 'read', read_at = $1 WHERE id IN (${ids}) AND receiver_id = $2 AND status != 'read'`,
+      [now, ...messageIds, userId]
+    );
 
     // Notify sender(s)
-    const senders = chatDB.prepare(
-      `SELECT DISTINCT sender_id FROM messages WHERE id IN (${placeholders})`
-    ).all(...messageIds);
+    const senders = await sql.all(
+      `SELECT DISTINCT sender_id FROM messages WHERE id IN (${ids})`,
+      messageIds
+    );
 
     senders.forEach(({ sender_id }) => {
       const sender = messageOnlineUsers.get(sender_id);
@@ -1300,9 +1351,10 @@ app.post('/api/message/read', requireAuth, (req, res) => {
   } else {
     // Mark all unread as read
     const now = new Date().toISOString();
-    chatDB.prepare(
-      `UPDATE messages SET status = 'read', read_at = ? WHERE receiver_id = ? AND status != 'read'`
-    ).run(now, userId);
+    await sql.run(
+      `UPDATE messages SET status = 'read', read_at = $1 WHERE receiver_id = $2 AND status != 'read'`,
+      [now, userId]
+    );
   }
   res.json({ success: true });
 });
@@ -1315,17 +1367,19 @@ app.post('/api/message/upload', requireAuth, upload.single('file'), (req, res) =
 });
 
 // Push subscription
-app.post('/api/message/push/subscribe', requireAuth, (req, res) => {
+app.post('/api/message/push/subscribe', requireAuth, async (req, res) => {
   const { endpoint, keys } = req.body.subscription;
-  chatDB.prepare(
-    `INSERT OR REPLACE INTO push_subscriptions (user_id, endpoint, p256dh, auth, created_at) VALUES (?, ?, ?, ?, ?)`
-  ).run(req.session.userId, endpoint, keys.p256dh, keys.auth, new Date().toISOString());
+  await sql.run(
+    `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, created_at)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (endpoint) DO UPDATE SET p256dh = $3, auth = $4`,
+    [req.session.userId, endpoint, keys.p256dh, keys.auth, new Date().toISOString()]
+  );
   res.json({ success: true });
 });
 
-app.post('/api/message/push/unsubscribe', requireAuth, (req, res) => {
-  chatDB.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?')
-    .run(req.body.endpoint);
+app.post('/api/message/push/unsubscribe', requireAuth, async (req, res) => {
+  await sql.run('DELETE FROM push_subscriptions WHERE endpoint = $1', [req.body.endpoint]);
   res.json({ success: true });
 });
 
@@ -1341,21 +1395,23 @@ messageIO.use((socket, next) => {
   next();
 });
 
-messageIO.on('connection', (socket) => {
+messageIO.on('connection', async (socket) => {
   const userId = socket.userId;
+
 
   // Track online status
   messageOnlineUsers.set(userId, { socketId: socket.id, lastSeen: Date.now() });
   messageIO.emit('presence', { userId, status: 'online' });
 
   // Send unread count
-  const unreadCount = chatDB.prepare(
-    `SELECT COUNT(*) as count FROM messages WHERE receiver_id = ? AND status != 'read'`
-  ).get(userId).count;
-  socket.emit('unread', { count: unreadCount });
+  const unreadResult = await sql.all(
+    `SELECT COUNT(*) as count FROM messages WHERE receiver_id = $1 AND status != 'read'`,
+    [userId]
+  );
+  socket.emit('unread', { count: unreadResult[0]?.count || 0 });
 
   // ---- Chat message ----
-  socket.on('chat:message', (data) => {
+  socket.on('chat:message', async (data) => {
     const { type, content, duration } = data;
     const receiverId = userId === 'husband' ? 'wife' : 'husband';
     const messageId = uuidv4();
@@ -1372,10 +1428,12 @@ messageIO.on('connection', (socket) => {
     };
 
     // Save to DB
-    chatDB.prepare(
-      `INSERT INTO messages (id, sender_id, receiver_id, type, content, duration, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(message.id, message.sender_id, message.receiver_id, message.type,
-      message.content, message.duration, message.status, message.created_at);
+    await sql.run(
+      `INSERT INTO messages (id, sender_id, receiver_id, type, content, duration, status, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [message.id, message.sender_id, message.receiver_id, message.type,
+       message.content, message.duration, message.status, message.created_at]
+    );
 
     // Send back to sender (confirmation)
     socket.emit('chat:message:sent', message);
@@ -1384,7 +1442,7 @@ messageIO.on('connection', (socket) => {
     const receiver = messageOnlineUsers.get(receiverId);
     if (receiver) {
       message.status = 'delivered';
-      chatDB.prepare(`UPDATE messages SET status = 'delivered' WHERE id = ?`).run(message.id);
+      await sql.run(`UPDATE messages SET status = 'delivered' WHERE id = $1`, [message.id]);
       messageIO.to(receiver.socketId).emit('chat:message:new', message);
       socket.emit('chat:message:status', { id: message.id, status: 'delivered' });
     } else {
@@ -1394,19 +1452,21 @@ messageIO.on('connection', (socket) => {
   });
 
   // ---- Read receipts ----
-  socket.on('chat:read', (data) => {
+  socket.on('chat:read', async (data) => {
     const { messageIds } = data;
     if (!messageIds || !messageIds.length) return;
 
     const now = new Date().toISOString();
-    const placeholders = messageIds.map(() => '?').join(',');
-    chatDB.prepare(
-      `UPDATE messages SET status = 'read', read_at = ? WHERE id IN (${placeholders}) AND receiver_id = ? AND status != 'read'`
-    ).run(now, ...messageIds, userId);
+    const ids = messageIds.map((_, i) => `$${i + 3}`).join(',');
+    await sql.run(
+      `UPDATE messages SET status = 'read', read_at = $1 WHERE id IN (${ids}) AND receiver_id = $2 AND status != 'read'`,
+      [now, ...messageIds, userId]
+    );
 
-    const senders = chatDB.prepare(
-      `SELECT DISTINCT sender_id FROM messages WHERE id IN (${placeholders})`
-    ).all(...messageIds);
+    const senders = await sql.all(
+      `SELECT DISTINCT sender_id FROM messages WHERE id IN (${ids})`,
+      messageIds
+    );
 
     senders.forEach(({ sender_id }) => {
       const sender = messageOnlineUsers.get(sender_id);
@@ -1434,9 +1494,10 @@ messageIO.on('connection', (socket) => {
 
 // Push notification helper
 async function sendPushNotification(receiverId, message) {
-  const subscriptions = chatDB.prepare(
-    `SELECT * FROM push_subscriptions WHERE user_id = ?`
-  ).all(receiverId);
+  const subscriptions = await sql.all(
+    `SELECT * FROM push_subscriptions WHERE user_id = $1`,
+    [receiverId]
+  );
 
   const senderName = ACCOUNTS[message.sender_id]?.name || message.sender_id;
   const payload = JSON.stringify({
@@ -1457,7 +1518,7 @@ async function sendPushNotification(receiverId, message) {
     } catch (err) {
       console.error('[Push] Failed:', err.statusCode);
       if (err.statusCode === 410) {
-        chatDB.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').run(sub.endpoint);
+        await sql.run('DELETE FROM push_subscriptions WHERE endpoint = $1', [sub.endpoint]);
       }
     }
   }
