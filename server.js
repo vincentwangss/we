@@ -1247,19 +1247,31 @@ app.get('/api/message/history', requireAuth, (req, res) => {
   const userId = req.session.userId;
   const partnerId = userId === 'husband' ? 'wife' : 'husband';
 
-  let stmt;
+  let stmt, messages;
   if (before) {
     stmt = chatDB.prepare(
-      `SELECT * FROM messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) AND created_at < ? ORDER BY created_at DESC LIMIT ?`
+      `SELECT * FROM chat_messages WHERE created_at < ? ORDER BY created_at DESC LIMIT ?`
     );
-    var messages = stmt.all(userId, partnerId, partnerId, userId, before, limit);
+    messages = stmt.all(before, limit);
   } else {
     stmt = chatDB.prepare(
-      `SELECT * FROM messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) ORDER BY created_at DESC LIMIT ?`
+      `SELECT * FROM chat_messages ORDER BY created_at ASC LIMIT ?`
     );
-    var messages = stmt.all(userId, partnerId, partnerId, userId, limit);
+    messages = stmt.all(limit);
   }
-  res.json(messages.reverse());
+  
+  // Transform to API response format
+  const transformed = messages.map(m => ({
+    id: m.id,
+    sender: m.role,
+    senderName: m.name,
+    content: m.content,
+    time: m.time,
+    status: m.read ? 'read' : 'delivered',
+    created_at: m.created_at
+  }));
+  
+  res.json({ messages: transformed });
 });
 
 // Mark messages as read
