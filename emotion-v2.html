@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我们的 · 小窝 🏠</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+            min-height: 100vh;
+            color: #e8e8e8;
+            overflow-x: hidden;
+        }
+        .floating-hearts { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; z-index: 0; }
+        .heart { position: absolute; color: rgba(255, 107, 129, 0.15); font-size: 20px; animation: floatUp 15s infinite; }
+        @keyframes floatUp { 0% { transform: translateY(100vh) rotate(0deg); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(-100px) rotate(720deg); opacity: 0; } }
+        .container { max-width: 900px; margin: 0 auto; padding: 40px 20px; position: relative; z-index: 1; }
+
+        /* 顶部状态栏 */
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 16px 24px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 182, 193, 0.2);
+        }
+        .days-counter {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .days-counter .icon { font-size: 1.8em; }
+        .days-counter .info { text-align: left; }
+        .days-counter .label { font-size: 0.8em; color: rgba(255,255,255,0.5); }
+        .days-counter .number { font-size: 1.4em; color: #ffb6c1; font-weight: 600; }
+        .streak-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, rgba(255, 107, 129, 0.2), rgba(255, 182, 193, 0.2));
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 182, 193, 0.3);
+        }
+        .streak-badge .fire { font-size: 1.2em; }
+        .streak-badge .count { color: #ffb6c1; font-weight: 600; }
+        .streak-badge .text { font-size: 0.85em; color: rgba(255,255,255,0.7); }
+
+        /* 每日卡片 */
+        .daily-card {
+            background: linear-gradient(135deg, rgba(255, 107, 129, 0.15), rgba(255, 182, 193, 0.1));
+            border-radius: 24px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 182, 193, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        .daily-card::before {
+            content: '今日';
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: linear-gradient(135deg, #ff6b81, #ffb6c1);
+            color: #fff;
+            font-size: 0.75em;
+            padding: 6px 16px;
+            border-radius: 0 24px 0 16px;
+        }
+        .daily-label { font-size: 0.85em; color: rgba(255,255,255,0.5); margin-bottom: 8px; }
+        .daily-content { font-size: 1.15em; color: rgba(255,255,255,0.95); line-height: 1.8; margin-bottom: 16px; }
+        .daily-footer { display: flex; justify-content: space-between; align-items: center; }
+        .daily-date { font-size: 0.85em; color: rgba(255,255,255,0.4); }
+        .daily-tip { font-size: 0.85em; color: #ffb6c1; }
+
+        /* 导航 */
+        .nav-tabs { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 30px; }
+        .tab-btn { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 182, 193, 0.2); color: rgba(255, 255, 255, 0.7); padding: 12px 24px; border-radius: 30px; cursor: pointer; transition: all 0.3s ease; font-size: 0.95em; }
+        .tab-btn:hover { background: rgba(255, 182, 193, 0.15); border-color: rgba(255, 182, 193, 0.4); color: #fff; }
+        .tab-btn.active { background: linear-gradient(135deg, rgba(255, 107, 129, 0.3), rgba(255, 182, 193, 0.3)); border-color: rgba(255, 182, 193, 0.5); color: #fff; }
+        .tab-btn .badge {
+            display: inline-block;
+            background: #ff6b81;
+            color: #fff;
+            font-size: 0.7em;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 6px;
+        }
+
+        .content-area { background: rgba(255, 255, 255, 0.03); border-radius: 24px; padding: 40px; border: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: blur(10px); min-height: 400px; }
+        .tab-content { display: none; animation: fadeIn 0.5s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .section-title { font-size: 1.6em; color: #fff; text-align: center; margin-bottom: 30px; font-weight: 300; letter-spacing: 2px; }
+        .section-title .icon { font-size: 1.2em; margin-right: 10px; }
+
+        /* 卡片 */
+        .card { background: rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 24px; margin-bottom: 20px; border: 1px solid rgba(255, 255, 255, 0.08); transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); }
+        .card-title { color: #ffb6c1; font-size: 1.1em; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .card-content { color: rgba(255, 255, 255, 0.85); line-height: 1.8; font-size: 0.95em; }
+        .trait-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 20px 0; }
+        .trait-item { background: linear-gradient(135deg, rgba(255, 107, 129, 0.1), rgba(255, 182, 193, 0.1)); border-radius: 12px; padding: 20px; text-align: center; border: 1px solid rgba(255, 182, 193, 0.2); }
+        .trait-item .emoji { font-size: 2em; margin-bottom: 10px; }
+        .trait-item .label { color: #ffb6c1; font-size: 0.9em; margin-bottom: 6px; }
+        .trait-item .desc { color: rgba(255, 255, 255, 0.7); font-size: 0.85em; line-height: 1.6; }
+        .quote-block { background: linear-gradient(135deg, rgba(255, 215, 0, 0.08), rgba(255, 182, 193, 0.08)); border-left: 3px solid rgba(255, 182, 193, 0.5); padding: 20px 24px; margin: 20px 0; border-radius: 0 12px 12px 0; font-style: italic; color: rgba(255, 255, 255, 0.9); line-height: 1.8; }
+        .quote-block .author { display: block; margin-top: 12px; font-size: 0.85em; color: rgba(255, 182, 193, 0.7); font-style: normal; }
+        .tag { display: inline-block; background: rgba(255, 107, 129, 0.2); color: #ffb6c1; padding: 4px 12px; border-radius: 20px; font-size: 0.8em; margin: 4px; }
+        .tag.gold { background: rgba(255, 215, 0, 0.2); color: #ffd700; }
+        .btn { background: linear-gradient(135deg, rgba(255, 107, 129, 0.3), rgba(255, 182, 193, 0.3)); border: 1px solid rgba(255, 182, 193, 0.4); color: #fff; padding: 14px 28px; border-radius: 30px; cursor: pointer; font-size: 1em; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 8px; }
+        .btn:hover { background: linear-gradient(135deg, rgba(255, 107, 129, 0.5), rgba(255, 182, 193, 0.5)); transform: translateY(-2px); box-shadow: 0 8px 25px rgba(255, 107, 129, 0.3); }
+        .btn-small { padding: 10px 20px; font-size: 0.9em; }
+        .btn-group { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; margin-top: 30px; }
+        .interaction-area { margin-top: 30px; padding-top: 30px; border-top: 1px solid rgba(255, 255, 255, 0.1); }
+        .prompt-text { text-align: center; color: rgba(255, 255, 255, 0.6); font-size: 0.95em; margin-bottom: 20px; }
+        .moment-card { background: rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 28px; margin-bottom: 16px; border: 1px solid rgba(255, 255, 255, 0.08); position: relative; overflow: hidden; }
+        .moment-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: linear-gradient(to bottom, #ff6b81, #ffb6c1); }
+        .moment-type { font-size: 0.85em; color: #ff6b81; margin-bottom: 8px; }
+        .moment-content { font-size: 1.05em; color: rgba(255, 255, 255, 0.9); line-height: 1.7; margin-bottom: 12px; }
+        .moment-hint { font-size: 0.85em; color: rgba(255, 255, 255, 0.5); font-style: italic; }
+        .list-item { display: flex; align-items: flex-start; gap: 12px; padding: 16px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        .list-item:last-child { border-bottom: none; }
+        .list-icon { font-size: 1.2em; flex-shrink: 0; }
+        .list-text { color: rgba(255, 255, 255, 0.85); line-height: 1.7; }
+        .highlight-box { background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 107, 129, 0.1)); border-radius: 16px; padding: 24px; margin: 20px 0; border: 1px solid rgba(255, 215, 0, 0.2); }
+        .highlight-box .title { color: #ffd700; font-size: 1.1em; margin-bottom: 12px; }
+
+        /* 签到区域 */
+        .checkin-section {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 107, 129, 0.1));
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+        .checkin-title { font-size: 1.2em; color: #fff; margin-bottom: 10px; }
+        .checkin-subtitle { font-size: 0.9em; color: rgba(255,255,255,0.6); margin-bottom: 20px; }
+        .checkin-btn {
+            background: linear-gradient(135deg, #ff6b81, #ffb6c1);
+            border: none;
+            color: #fff;
+            padding: 16px 40px;
+            border-radius: 30px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .checkin-btn:hover { transform: scale(1.05); box-shadow: 0 8px 25px rgba(255, 107, 129, 0.4); }
+        .checkin-btn:disabled { background: #666; cursor: not-allowed; transform: none; box-shadow: none; }
+        .checkin-streak { margin-top: 20px; display: flex; justify-content: center; gap: 8px; }
+        .checkin-dot { width: 12px; height: 12px; border-radius: 50%; background: rgba(255,255,255,0.2); }
+        .checkin-dot.active { background: #ff6b81; }
+
+        /* 纪念日 */
+        .anniversary-section { margin-bottom: 30px; }
+        .anniversary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; }
+        .anniversary-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid rgba(255, 182, 193, 0.2);
+        }
+        .anniversary-item .icon { font-size: 1.8em; margin-bottom: 8px; }
+        .anniversary-item .label { font-size: 0.85em; color: rgba(255,255,255,0.6); margin-bottom: 4px; }
+        .anniversary-item .count { font-size: 1.5em; color: #ffb6c1; font-weight: 600; }
+        .anniversary-item .unit { font-size: 0.8em; color: rgba(255,255,255,0.5); }
+
+        /* 成就墙 */
+        .achievement-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 16px; margin: 20px 0; }
+        .achievement-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 20px 16px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .achievement-item:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
+        .achievement-item.locked { opacity: 0.4; filter: grayscale(1); }
+        .achievement-item .icon { font-size: 2em; margin-bottom: 8px; }
+        .achievement-item .name { font-size: 0.8em; color: rgba(255,255,255,0.7); }
+        .achievement-item .desc { font-size: 0.75em; color: rgba(255,255,255,0.4); margin-top: 4px; }
+
+        /* 悄悄话 */
+        .whisper-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 182, 193, 0.3);
+            border-radius: 16px;
+            padding: 20px;
+            color: #fff;
+            font-size: 1em;
+            resize: none;
+            outline: none;
+            min-height: 120px;
+            font-family: inherit;
+        }
+        .whisper-input::placeholder { color: rgba(255,255,255,0.4); }
+        .whisper-list { margin-top: 20px; }
+        .whisper-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-left: 3px solid #ffb6c1;
+        }
+        .whisper-item .time { font-size: 0.8em; color: rgba(255,255,255,0.4); margin-bottom: 6px; }
+        .whisper-item .text { font-size: 0.95em; color: rgba(255,255,255,0.9); line-height: 1.6; }
+        .whisper-item.wss .border-left-color { border-left-color: #6495ed; }
+
+        /* 弹窗 */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 1000; justify-content: center; align-items: center; padding: 20px; }
+        .modal.show { display: flex; }
+        .modal-content { background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 24px; padding: 40px; max-width: 500px; width: 100%; border: 1px solid rgba(255, 182, 193, 0.3); position: relative; animation: modalPop 0.4s ease; }
+        @keyframes modalPop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .modal-close { position: absolute; top: 20px; right: 20px; background: none; border: none; color: rgba(255, 255, 255, 0.5); font-size: 1.5em; cursor: pointer; }
+        .modal-close:hover { color: #fff; }
+        .modal-title { font-size: 1.4em; color: #fff; margin-bottom: 20px; text-align: center; }
+        .modal-body { color: rgba(255, 255, 255, 0.85); line-height: 1.8; text-align: center; }
+        .signature { text-align: center; margin-top: 40px; padding-top: 30px; border-top: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.4); font-size: 0.9em; }
+        .signature .name { color: rgba(255, 182, 193, 0.6); font-style: italic; }
+        @keyframes bounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        .bounce { animation: bounce 0.6s ease; }
+        @keyframes sparkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .sparkle { animation: sparkle 1s ease infinite; }
+
+        /* 今日话题 */
+        .topic-card {
+            background: linear-gradient(135deg, rgba(100, 149, 237, 0.15), rgba(255, 182, 193, 0.1));
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 20px;
+            border: 1px solid rgba(100, 149, 237, 0.3);
+        }
+        .topic-label { font-size: 0.85em; color: #6495ed; margin-bottom: 12px; }
+        .topic-question { font-size: 1.3em; color: #fff; line-height: 1.7; margin-bottom: 20px; }
+        .topic-options { display: flex; flex-direction: column; gap: 12px; }
+        .topic-option { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px 20px; cursor: pointer; transition: all 0.3s; color: rgba(255,255,255,0.8); }
+        .topic-option:hover { background: rgba(100, 149, 237, 0.2); border-color: rgba(100, 149, 237, 0.4); }
+        @media (max-width: 768px) { .container { padding: 20px 16px; } .content-area { padding: 24px 20px; } .trait-grid { grid-template-columns: 1fr 1fr; } .anniversary-grid { grid-template-columns: 1fr 1fr; } .status-bar { flex-direction: column; gap: 12px; } }
+    </style>
+</head>
+<body>
+    <div class="floating-hearts" id="hearts"></div>
+    <div class="container">
+        <!-- 顶部状态栏 -->
+        <div class="status-bar">
+            <div class="days-counter">
+                <span class="icon">💕</span>
+                <div class="info">
+                    <div class="label">在一起</div>
+                    <div class="number" id="daysCount">520 天</div>
+                </div>
+            </div>
+            <div class="streak-badge">
+                <span class="fire">🔥</span>
+                <span class="count" id="streakCount">7</span>
+                <span class="text">天连续签到</span>
+            </div>
+        </div>
+
+        <!-- 每日卡片 -->
+        <div class="daily-card">
+            <div class="daily-label">✨ 今天的温柔</div>
+            <div class="daily-content" id="dailyContent">"有些话不用说出口，你在这里，就已经是最好的答案了。"</div>
+            <div class="daily-footer">
+                <span class="daily-date" id="dailyDate">2026年4月7日</span>
+                <span class="daily-tip">💭 记得微笑</span>
+            </div>
+        </div>
+
+        <!-- 签到区域 -->
+        <div class="checkin-section">
+            <div class="checkin-title">🌸 每日签到</div>
+            <div class="checkin-subtitle" id="checkinStatus">点亮今天的星星，开启专属温柔</div>
+            <button class="checkin-btn" id="checkinBtn" onclick="doCheckin()">✨ 签到</button>
+            <div class="checkin-streak" id="checkinStreak">
+                <div class="checkin-dot active"></div>
+                <div class="checkin-dot active"></div>
+                <div class="checkin-dot active"></div>
+                <div class="checkin-dot active"></div>
+                <div class="checkin-dot active"></div>
+                <div class="checkin-dot active"></div>
+                <div class="checkin-dot"></div>
+            </div>
+        </div>
+
+        <!-- 导航 -->
+        <div class="nav-tabs">
+            <button class="tab-btn active" data-tab="zodiac">♌ 星座密码</button>
+            <button class="tab-btn" data-tab="moments">💫 心动的痕迹</button>
+            <button class="tab-btn" data-tab="details">🌸 藏在细节里</button>
+            <button class="tab-btn" data-tab="inner">💭 她说不出的</button>
+            <button class="tab-btn" data-tab="diary">📖 悄悄话<span class="badge">新</span></button>
+        </div>
+
+        <div class="content-area">
+            <!-- 星座密码 -->
+            <div class="tab-content active" id="zodiac">
+                <h2 class="section-title"><span class="icon">♌</span>狮子座 · 小蝴蝶</h2>
+
+                <div class="card">
+                    <div class="card-title">🌟 当狮子座遇见INFP</div>
+                    <div class="card-content">
+                        <p style="margin-bottom: 15px;">你是那种会让人忍不住多看两眼的人。不是因为耀眼，而是因为——明明可以靠气场，却偏偏要躲进自己的小世界里偷偷温柔。</p>
+                        <p>狮子座的太阳落在INFP的月亮上，于是你成了这样一个矛盾体：<strong style="color: #ffb6c1;">白天是骄傲的小狮子，晚上是独自写诗的小蝴蝶。</strong></p>
+                    </div>
+                </div>
+
+                <div class="trait-grid">
+                    <div class="trait-item">
+                        <div class="emoji">👑</div>
+                        <div class="label">骄傲是你的保护色</div>
+                        <div class="desc">嘴上说着"无所谓"，心里却把每个细节都记得清清楚楚</div>
+                    </div>
+                    <div class="trait-item">
+                        <div class="emoji">🦋</div>
+                        <div class="label">内心住着一个小世界</div>
+                        <div class="desc">那里有你看过的书、听过的歌、深夜emo过的文案</div>
+                    </div>
+                    <div class="trait-item">
+                        <div class="emoji">🌙</div>
+                        <div class="label">敏感但不说出口</div>
+                        <div class="desc">别人一个眼神，你已经写了一百字的内心小作文</div>
+                    </div>
+                    <div class="trait-item">
+                        <div class="emoji">💫</div>
+                        <div class="label">渴望被认真对待</div>
+                        <div class="desc">比起"我喜欢你"，更想听"我懂你为什么会这样想"</div>
+                    </div>
+                </div>
+
+                <div class="quote-block">
+                    "INFP狮子座是那种——会在人群里发光，却在独处时更能照见自己的人。他们的光芒不需要舞台，但一旦站上去，就是全场焦点。"
+                    <span class="author">—— 人格森林</span>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">🔮 syq.的隐藏技能</div>
+                    <div class="list-item">
+                        <span class="list-icon">🎭</span>
+                        <span class="list-text"><strong>情绪雷达</strong> — 能从一句话的语气里，读出三层没说的意思</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-icon">✨</span>
+                        <span class="list-text"><strong>细节放大镜</strong> — 记住你说过的每一件小事，然后在某个普通的日子里突然提起</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-icon">🎨</span>
+                        <span class="list-text"><strong>浪漫感知器</strong> — 比起999朵玫瑰，更容易被一句走心的文案打动</span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-icon">🛡️</span>
+                        <span class="list-text"><strong>嘴硬指数MAX</strong> — "我才没有生气" 翻译："你需要来哄我了"</span>
+                    </div>
+                </div>
+
+                <div class="highlight-box">
+                    <div class="title">🎯 wss生存指南（仅供参考）</div>
+                    <div class="card-content">
+                        <p style="margin-bottom: 12px;"><span class="tag">✓</span> 当她说"随便"的时候，不要真的随便</p>
+                        <p style="margin-bottom: 12px;"><span class="tag">✓</span> 她不是在生气，只是在等你发现她在意的那个点</p>
+                        <p style="margin-bottom: 12px;"><span class="tag">✓</span> 夸她要具体，别只说"好看"，要说"今天这个颜色很衬你"</p>
+                        <p><span class="tag">✓</span> 她嘴上说"不用管我"，但其实很希望你管</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 心动的痕迹 -->
+            <div class="tab-content" id="moments">
+                <h2 class="section-title"><span class="icon">💫</span>心动的痕迹</h2>
+
+                <div class="card">
+                    <div class="card-content">
+                        <p style="text-align: center; color: rgba(255,255,255,0.6); font-style: italic;">"喜欢一个人，是藏不住的。哪怕捂住嘴巴，也会从眼睛里跑出来。"</p>
+                    </div>
+                </div>
+
+                <div class="moment-card">
+                    <div class="moment-type">🌅 清晨的第一个想念</div>
+                    <div class="moment-content">"有时候醒过来，会先看手机。不是看时间，是看看有没有你的消息。如果有，会觉得今天一整天都会是晴天。"</div>
+                    <div class="moment-hint">—— 小蝴蝶的清晨仪式</div>
+                </div>
+
+                <div class="moment-card">
+                    <div class="moment-type">🎵 突然很想分享的瞬间</div>
+                    <div class="moment-content">"听到一首歌，会想发给你。不是因为这首歌多好听，是因为'如果是你，应该会喜欢吧'——然后等你的回复，比等歌本身还认真。"</div>
+                    <div class="moment-hint">—— 分享即在意</div>
+                </div>
+
+                <div class="moment-card">
+                    <div class="moment-type">🌙 深夜的胡思乱想</div>
+                    <div class="moment-content">"有时候会突然想：如果当初没说那句话，现在会不会不一样？你会不会其实没那么喜欢我？我们还能走多远？"</div>
+                    <div class="moment-hint">—— 小蝴蝶的深夜剧场，正在热映</div>
+                </div>
+
+                <div class="moment-card">
+                    <div class="moment-type">💭 被懂得的瞬间</div>
+                    <div class="moment-content">"有时候你随口说的一句话，我会想很久——'你怎么知道我最近在想这个？'那一刻会觉得，被看穿也不可怕。"</div>
+                    <div class="moment-hint">—— 小蝴蝶最珍贵的瞬间</div>
+                </div>
+
+                <div class="moment-card">
+                    <div class="moment-type">🌸 想靠近又怕打扰</div>
+                    <div class="moment-content">"想找你聊天，又怕打扰你。想发消息，又怕自己太主动。于是打开对话框，打了一行字，又删掉——算了，还是等你先找我吧。"</div>
+                    <div class="moment-hint">—— 小蝴蝶的内心挣扎现场</div>
+                </div>
+
+                <div class="moment-card">
+                    <div class="moment-type">💕 看见你就会笑</div>
+                    <div class="moment-content">"有时候刷到你的消息，明明很普通的一句话，却忍不住嘴角上扬。这种感觉藏不住，连屏幕那边的你，可能都能感受到吧。"</div>
+                    <div class="moment-hint">—— 心动的证据，已经自动同步给你了</div>
+                </div>
+
+                <div class="interaction-area">
+                    <p class="prompt-text">💕 你有没有过这样的时刻？</p>
+                    <div class="btn-group">
+                        <button class="btn btn-small" onclick="getRandomMoment()"><span>🔮</span> 随机心动时刻</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 藏在细节里 -->
+            <div class="tab-content" id="details">
+                <h2 class="section-title"><span class="icon">🌸</span>藏在细节里的在乎</h2>
+
+                <div class="card">
+                    <div class="card-title">💝 那些没说出口的"我在意你"</div>
+                    <div class="card-content">
+                        <p>有些在乎，不需要说出来。它藏在某个习惯里，藏在某句话里，藏在那些你以为对方没注意到的瞬间。</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">🔍 来自wss的"暗中观察"报告</div>
+                    <div class="list-item">
+                        <span class="list-icon">📱</span>
+                        <span class="list-text"><strong>秒回不是巧合</strong><br><span style="color: rgba(255,255,255,0.6); font-size: 0.9em;">"每次手机亮起来，都会忍不住看一眼是不是你"</span></span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-icon">🎂</span>
+                        <span class="list-text"><strong>记得那些她说过的"随便"</strong><br><span style="color: rgba(255,255,255,0.6); font-size: 0.9em;">"她说喜欢吃草莓蛋糕，说了几遍不重要，重要的是他都记着"</span></span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-icon">🌙</span>
+                        <span class="list-text"><strong>晚安不只是礼貌</strong><br><span style="color: rgba(255,255,255,0.6); font-size: 0.9em;">"每次说晚安之后，还要再聊两句才舍得放下手机"</span></span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-icon">👀</span>
+                        <span class="list-text"><strong>偷偷看她的朋友圈</strong><br><span style="color: rgba(255,255,255,0.6); font-size: 0.9em;">"翻到很久以前的动态，看到她笑的样子，默默存下来"</span></span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-icon">💕</span>
+                        <span class="list-text"><strong>记得她的"口头禅"</strong><br><span style="color: rgba(255,255,255,0.6); font-size: 0.9em;">"她每次生气都会说的一句话，他知道怎么接才能让她消气"</span></span>
+                    </div>
+                    <div class="list-item">
+                        <span class="list-icon">📝</span>
+                        <span class="list-text"><strong>记住重要的小事</strong><br><span style="color: rgba(255,255,255,0.6); font-size: 0.9em;">"她无意中提过想要的东西，他悄悄记下，然后在某个平凡的日子给她惊喜"</span></span>
+                    </div>
+                </div>
+
+                <div class="highlight-box">
+                    <div class="title">📝 syq.被默默关注的证据</div>
+                    <p style="text-align: center; color: rgba(255,255,255,0.7); font-size: 0.9em;">wss对她的了解程度：<strong style="color: #ffb6c1;">87%</strong></p>
+                    <p style="text-align: center; color: rgba(255,255,255,0.5); font-size: 0.85em; margin-top: 8px;">"剩下的13%在等她亲口告诉他"</p>
+                </div>
+            </div>
+
+            <!-- 她说不出的 -->
+            <div class="tab-content" id="inner">
+                <h2 class="section-title"><span class="icon">💭</span>她说不出的话</h2>
+
+                <div class="card">
+                    <div class="card-content">
+                        <p style="text-align: center; color: rgba(255,255,255,0.6); font-style: italic; line-height: 1.8;">"有些话到了嘴边，又咽了回去。<br>不知道怎么开口，怕说出来显得太在意。<br>于是只好写在这里。"</p>
+                    </div>
+                </div>
+
+                <div class="moment-card">
+                    <div class="moment-type">表面 👑</div>
+                    <div class="moment-content" style="color: rgba(255,255,255,0.6);">"我没事，你忙你的吧。"</div>
+                </div>
+                <div class="moment-card" style="border-left-color: rgba(255, 182, 193, 0.8);">
+                    <div class="moment-type">内心 🦋</div>
+                    <div class="moment-content">"其实……你可以再问一句的。就一句就好。我只是不知道该怎么开口，但我会告诉你的。"</div>
+                </div>
+
+                <div class="moment-card">
+                    <div class="moment-type">表面 👑</div>
+                    <div class="moment-content" style="color: rgba(255,255,255,0.6);">"不用送我了，我自己可以的。"</div>
+                </div>
+                <div class="moment-card" style="border-left-color: rgba(255, 182, 193, 0.8);">
+                    <div class="moment-type">内心 🦋</div>
+                    <div class="moment-content">"其实我好希望你会坚持送我。你坚持一下下，我就会顺着台阶下来了。"</div>
+                </div>
+
+                <div class="moment-card">
+                    <div class="moment-type">表面 👑</div>
+                    <div class="moment-content" style="color: rgba(255,255,255,0.6);">"随便选吧，我都可以。"</div>
+                </div>
+                <div class="moment-card" style="border-left-color: rgba(255, 182, 193, 0.8);">
+                    <div class="moment-type">内心 🦋</div>
+                    <div class="moment-content">"我确实不知道选什么……但如果你选的，我会觉得那就是最好的。因为那是你选的呀。"</div>
+                </div>
+
+                <div class="moment-card">
+                    <div class="moment-type">表面 👑</div>
+                    <div class="moment-content" style="color: rgba(255,255,255,0.6);">"哦。"</div>
+                </div>
+                <div class="moment-card" style="border-left-color: rgba(255, 182, 193, 0.8);">
+                    <div class="moment-type">内心 🦋</div>
+                    <div class="moment-content">"这三个字，其实是在等你追问我。我只是不知道怎么开口说'你能不能多陪我说说话'……但其实……是的，我有点依赖。"</div>
+                </div>
+
+                <div class="card" style="background: linear-gradient(135deg, rgba(255, 107, 129, 0.1), rgba(255, 182, 193, 0.1)); margin-top: 30px;">
+                    <div class="card-title">💝 给wss的话</div>
+                    <div class="card-content">
+                        <p style="line-height: 1.9;">"你可能觉得我很麻烦——为什么有话不直说，为什么总是让你猜。<br><br>但如果你愿意的话……<strong style="color: #ffb6c1;">可以多问一句吗？</strong><br><br>就一句就好。"</p>
+                    </div>
+                </div>
+
+                <div class="interaction-area">
+                    <p class="prompt-text">💭 wss，你读懂了吗？</p>
+                    <div class="btn-group">
+                        <button class="btn btn-small" onclick="showPromise()"><span>🤝</span> 做出承诺</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 悄悄话日记 -->
+            <div class="tab-content" id="diary">
+                <h2 class="section-title"><span class="icon">📖</span>悄悄话</h2>
+
+                <div class="card">
+                    <div class="card-title">💌 写给wss的悄悄话</div>
+                    <div class="card-content">
+                        <p style="margin-bottom: 16px; color: rgba(255,255,255,0.6);">这里只有你和wss知道。想说什么，就说吧。</p>
+                        <textarea class="whisper-input" id="whisperInput" placeholder="今天想对wss说点什么……"></textarea>
+                        <div class="btn-group" style="margin-top: 16px;">
+                            <button class="btn btn-small" onclick="saveWhisper()"><span>💕</span> 发送悄悄话</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="whisper-list" id="whisperList">
+                    <div class="whisper-item">
+                        <div class="time">2026年4月7日 22:30</div>
+                        <div class="text">今天看到这个页面，突然觉得……被认真对待的感觉真好。谢谢你记得这些。</div>
+                    </div>
+                    <div class="whisper-item">
+                        <div class="time">2026年4月6日 深夜</div>
+                        <div class="text">其实我有时候会偷偷来看，就是想看看你有没有偷偷给我写什么……🤭</div>
+                    </div>
+                </div>
+
+                <!-- 成就墙 -->
+                <div class="card" style="margin-top: 30px;">
+                    <div class="card-title">🏆 成就墙</div>
+                    <div class="achievement-grid">
+                        <div class="achievement-item">
+                            <div class="icon">🌸</div>
+                            <div class="name">初次到访</div>
+                            <div class="desc">打开小窝</div>
+                        </div>
+                        <div class="achievement-item">
+                            <div class="icon">🔥</div>
+                            <div class="name">连续7天</div>
+                            <div class="desc">签到7天</div>
+                        </div>
+                        <div class="achievement-item">
+                            <div class="icon">💕</div>
+                            <div class="name">心动收集</div>
+                            <div class="desc">看了10个心动</div>
+                        </div>
+                        <div class="achievement-item locked">
+                            <div class="icon">🌙</div>
+                            <div class="name">深夜emo</div>
+                            <div class="desc">凌晨来访</div>
+                        </div>
+                        <div class="achievement-item locked">
+                            <div class="icon">💎</div>
+                            <div class="name">专属印记</div>
+                            <div class="desc">写下100条</div>
+                        </div>
+                        <div class="achievement-item locked">
+                            <div class="icon">👑</div>
+                            <div class="name">女王陛下</div>
+                            <div class="desc">互动30次</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="signature">
+            <p>Made with 💕 for <span class="name">wss</span> and <span class="name">syq.</span></p>
+        </div>
+    </div>
+
+    <!-- 弹窗 -->
+    <div class="modal" id="randomModal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+            <div class="modal-title">🔮 随机心动时刻</div>
+            <div class="modal-body" id="randomContent"></div>
+        </div>
+    </div>
+
+    <div class="modal" id="promiseModal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+            <div class="modal-title">🤝 承诺</div>
+            <div class="modal-body">
+                <p style="font-size: 1.1em; color: rgba(255,255,255,0.9); line-height: 1.9;">"以后，我会多问你一句。<br>不再让你一个人胡思乱想。<br>不再让你等太久。"</p>
+                <p style="margin-top: 20px; color: rgba(255,255,255,0.6);">—— wss的承诺</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="checkinModal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+            <div class="modal-title" id="checkinModalTitle">✨ 签到成功</div>
+            <div class="modal-body" id="checkinModalContent"></div>
+        </div>
+    </div>
+
+    <script>
+        // 创建漂浮的心
+        function createHearts() {
+            const container = document.getElementById('hearts');
+            const hearts = ['💕', '💗', '💖', '✨', '🌸', '🦋', '🌙'];
+            for (let i = 0; i < 15; i++) {
+                const heart = document.createElement('div');
+                heart.className = 'heart';
+                heart.textContent = hearts[Math.floor(Math.random() * hearts.length)];
+                heart.style.left = Math.random() * 100 + '%';
+                heart.style.animationDelay = Math.random() * 15 + 's';
+                heart.style.animationDuration = (15 + Math.random() * 10) + 's';
+                container.appendChild(heart);
+            }
+        }
+        createHearts();
+
+        // 初始化日期
+        function initDate() {
+            const now = new Date();
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('dailyDate').textContent = now.toLocaleDateString('zh-CN', options);
+        }
+        initDate();
+
+        // 每日内容（根据日期变化）
+        const dailyContents = [
+            "有些话不用说出口，你在这里，就已经是最好的答案了。",
+            "今天也要记得微笑哦，因为你笑起来的样子，很好看。",
+            "如果累了，就来这里歇一歇。这里永远有你的位置。",
+            "有些瞬间值得被记住，就像你值得被好好对待。",
+            "不管今天发生了什么，记得你很重要。",
+            "愿你今天被温柔以待，就像你温柔地对待这个世界一样。",
+            "每一个平凡的日子，都因为有人在想着你而变得特别。"
+        ];
+
+        function getDailyContent() {
+            const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
+            return dailyContents[dayOfYear % dailyContents.length];
+        }
+        document.getElementById('dailyContent').textContent = '"' + getDailyContent() + '"';
+
+        // 签到功能
+        let checkinData = JSON.parse(localStorage.getItem('syqCheckin') || '{"lastDate": "", "streak": 0, "total": 0}');
+        const today = new Date().toDateString();
+
+        function updateCheckinUI() {
+            document.getElementById('streakCount').textContent = checkinData.streak;
+
+            // 更新连续签到点
+            const dots = document.querySelectorAll('.checkin-dot');
+            dots.forEach((dot, i) => {
+                dot.classList.toggle('active', i < checkinData.streak);
+            });
+
+            // 更新按钮状态
+            const btn = document.getElementById('checkinBtn');
+            const status = document.getElementById('checkinStatus');
+
+            if (checkinData.lastDate === today) {
+                btn.disabled = true;
+                btn.textContent = '✅ 今日已签到';
+                status.textContent = '明天再来哦~';
+            } else {
+                btn.disabled = false;
+                btn.textContent = '✨ 签到';
+                status.textContent = '点亮今天的星星，开启专属温柔';
+            }
+        }
+
+        function doCheckin() {
+            const today = new Date().toDateString();
+            const yesterday = new Date(Date.now() - 86400000).toDateString();
+
+            if (checkinData.lastDate === today) return;
+
+            // 检查是否连续
+            if (checkinData.lastDate === yesterday) {
+                checkinData.streak++;
+            } else if (checkinData.lastDate !== today) {
+                checkinData.streak = 1;
+            }
+
+            checkinData.lastDate = today;
+            checkinData.total++;
+            localStorage.setItem('syqCheckin', JSON.stringify(checkinData));
+
+            updateCheckinUI();
+
+            // 弹窗
+            const messages = [
+                { title: '✨ 签到成功', content: '今天的星星已点亮 💫' },
+                { title: '💕 乖~', content: '谢谢你今天也来了 🌸' },
+                { title: '🌙 晚安前的温柔', content: '记得好好休息，明天见 💤' },
+                { title: '🦋 收到啦', content: '小蝴蝶的心意，wss收到了 💕' }
+            ];
+            const msg = messages[Math.floor(Math.random() * messages.length)];
+            document.getElementById('checkinModalTitle').textContent = msg.title;
+            document.getElementById('checkinModalContent').innerHTML = `<p style="font-size: 1.2em; margin-bottom: 10px;">${msg.content}</p><p style="color: rgba(255,255,255,0.6);">连续签到 <strong style="color: #ffb6c1;">${checkinData.streak}</strong> 天</p>`;
+            document.getElementById('checkinModal').classList.add('show');
+        }
+
+        updateCheckinUI();
+
+        // 标签切换
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById(btn.dataset.tab).classList.add('active');
+            });
+        });
+
+        // 弹窗
+        function closeModal() { document.querySelectorAll('.modal').forEach(m => m.classList.remove('show')); }
+
+        // 随机心动时刻
+        const moments = [
+            "那天下雨，你把伞往我这边倾斜，自己淋湿了半边肩膀——那一刻我觉得，被人放在心上，原来是这种感觉。",
+            "你记得我不吃香菜。下次吃饭的时候，你悄悄跟服务员说'不要香菜'——你什么都没说，但我听到了。",
+            "深夜聊天，我说睡不着，你陪我聊到凌晨三点。早上醒来看到你发的'早安'——那是我收到过最好的起床礼物。",
+            "你生气的时候会说'算了'。但我知道你不会真的算了。你只是需要一个台阶，我愿意一直给你台阶下。",
+            "有时候我会故意不回消息，想看看你会不会着急。然后你真的来找我了——虽然嘴上说'没事啊'，但我知道你其实很在意。",
+            "我们吵架的时候，你从来不跟我对骂。你会先安静下来，等我情绪过了再来哄我。有时候我觉得这样很不公平，但大多数时候……我很庆幸遇到的是你。",
+            "你不太会说情话，但我记得你说的每一句——因为每一句都是你认真想过的。比起那些天花乱坠的誓言，我更喜欢你的笨拙和真诚。",
+            "你会在我难过的时候给我发一堆表情包，想逗我笑。虽然很幼稚，但我每次都会被你逗到——因为我知道，那是你笨拙的关心方式。"
+        ];
+
+        function getRandomMoment() {
+            const random = moments[Math.floor(Math.random() * moments.length)];
+            document.getElementById('randomContent').innerHTML = `<p style="font-size: 1.05em; line-height: 1.9; color: rgba(255,255,255,0.9);">"${random}"</p>`;
+            document.getElementById('randomModal').classList.add('show');
+        }
+
+        // 承诺
+        function showPromise() { document.getElementById('promiseModal').classList.add('show'); }
+
+        // 保存悄悄话
+        function saveWhisper() {
+            const input = document.getElementById('whisperInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const now = new Date();
+            const timeStr = now.toLocaleDateString('zh-CN') + ' ' + now.toLocaleTimeString('zh-CN', {hour: '2-digit', minute:'2-digit'});
+
+            const list = document.getElementById('whisperList');
+            const item = document.createElement('div');
+            item.className = 'whisper-item';
+            item.innerHTML = `<div class="time">${timeStr}</div><div class="text">${text}</div>`;
+            list.insertBefore(item, list.firstChild);
+
+            input.value = '';
+        }
+    </script>
+</body>
+</html>

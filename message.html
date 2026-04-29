@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Chat</title>
+  <link rel="stylesheet" href="/message.css">
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="loginScreen" class="screen">
+    <div class="login-card">
+      <div class="login-heart">💕</div>
+      <h1>Our Chat</h1>
+      <p class="login-subtitle">属于我们的聊天空间</p>
+      <div class="account-selector">
+        <div class="account-option" data-id="husband">
+          <span class="account-avatar">🧑</span>
+          <span class="account-name">wss</span>
+        </div>
+        <div class="account-option" data-id="wife">
+          <span class="account-avatar">👩</span>
+          <span class="account-name">syq.</span>
+        </div>
+      </div>
+      <div class="pwd-wrapper">
+        <input type="password" id="pwdInput" placeholder="密码" autocomplete="current-password">
+        <button type="button" id="togglePwd" class="toggle-pwd-btn">👁</button>
+      </div>
+      <button id="loginBtn" class="primary-btn">登 录</button>
+      <div id="loginError" class="error-msg" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- Chat Screen -->
+  <div id="chatScreen" class="screen" style="display:none">
+    <!-- Header -->
+    <header class="chat-header">
+      <div class="header-info">
+        <span class="partner-avatar" id="partnerAvatar"></span>
+        <div class="header-text">
+          <h1 class="partner-name" id="partnerName"></h1>
+          <span class="partner-status" id="partnerStatus">在线</span>
+        </div>
+      </div>
+      <button class="header-btn" id="searchBtn" title="搜索" onclick="toggleSearch()">🔍</button>
+      <button class="header-btn" id="logoutBtn" title="设置">⚙</button>
+    </header>
+
+    <!-- Search Bar -->
+    <div id="searchBar" class="search-bar">
+      <input type="text" id="searchInput" placeholder="搜索聊天记录...">
+      <button class="search-close-btn" onclick="toggleSearch()">✕</button>
+      <div id="searchResults" class="search-results"></div>
+    </div>
+
+    <!-- Message List -->
+    <div id="messageList" class="message-list">
+      <div id="loadingMore" class="loading-more" style="display:none">
+        <span class="spinner"></span> 加载中...
+      </div>
+    </div>
+
+    <!-- Typing indicator -->
+    <div id="typingIndicator" class="typing-indicator" style="display:none">
+      <span class="typing-dots"><span></span><span></span><span></span></span>
+      对方正在输入...
+    </div>
+
+    <!-- Input Bar -->
+    <div class="input-bar" id="inputBar">
+      <button class="input-btn" id="voiceBtn" title="语音">🎤</button>
+      <div class="input-wrapper">
+        <textarea id="msgInput" rows="1" placeholder="消息..." autofocus></textarea>
+      </div>
+      <button class="input-btn" id="emojiBtn" title="表情">😊</button>
+      <button class="input-btn" id="imgBtn" title="图片">📷</button>
+      <button class="input-btn send-btn" id="sendBtn" title="发送" style="display:none">➤</button>
+      <input type="file" id="fileInput" accept="image/*" hidden>
+    </div>
+
+    <!-- Voice Recording Overlay -->
+    <div id="voiceOverlay" class="voice-overlay" style="display:none">
+      <div class="voice-recording-box">
+        <div class="voice-waves">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <span class="voice-timer" id="voiceTimer">0:00</span>
+        <div class="voice-actions">
+          <button class="voice-cancel-btn" id="voiceCancelBtn">取消</button>
+          <button class="voice-send-btn" id="voiceSendBtn">发送</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Emoji Picker Panel -->
+    <div id="emojiPicker" class="emoji-picker" style="display:none">
+      <div class="emoji-tabs">
+        <button class="emoji-tab active" data-category="smileys">😀</button>
+        <button class="emoji-tab" data-category="hearts">❤️</button>
+        <button class="emoji-tab" data-category="gestures">👋</button>
+        <button class="emoji-tab" data-category="objects">🎉</button>
+        <button class="emoji-tab" data-category="nature">🌸</button>
+      </div>
+      <div class="emoji-grid" id="emojiGrid"></div>
+    </div>
+
+    <!-- Image Preview Modal -->
+    <div id="imagePreview" class="image-preview" style="display:none">
+      <div class="image-preview-overlay"></div>
+      <img id="previewImg" src="" alt="preview">
+    </div>
+
+    <!-- Context Menu -->
+    <div id="contextMenu" class="context-menu">
+      <div class="context-menu-item" onclick="copyMessageText()">
+        <span>📋</span> 复制
+      </div>
+      <div class="context-menu-item" onclick="forwardMessage()">
+        <span>🔄</span> 转发
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const VAPID_PUBLIC_KEY = '__VAPID_PUBLIC_KEY__';
+    const USER_ID = '__USER_ID__';
+    const USER_NAME = '__USER_NAME__';
+  </script>
+  <script src="/message.js"></script>
+</body>
+</html>

@@ -5,6 +5,11 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const fetch = require('node-fetch');
+const session = require('express-session');
+const multer = require('multer');
+const { v4: uuidv4 } = require('uuid');
+const webpush = require('web-push');
+const { initDB } = require('./db');
 require('dotenv').config();
 
 const app = express();
@@ -19,6 +24,17 @@ const io = new Server(server, {
 // Middleware
 app.use(cors());
 app.use(express.json());
+// Session middleware for /message authentication
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'couple-chat-secret-2026',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production'
+  }
+}));
 // 静态文件（排除 index.html）
 app.use(express.static(path.join(__dirname, '.'), {
   index: false,
@@ -121,6 +137,46 @@ const DEFAULT_WIFE_PROMPT = `你扮演syq.（沈郁清），一个独立理性�
 // ==================== STATE ====================
 let chatHistory = []; // {id, type, speaker, content, timestamp, isAI}
 let connectedUsers = new Map(); // socketId -> {id, name, role, joinTime}
+
+// Load chat history from database (called after chatDB is initialized)
+function loadChatHistory() {
+  try {
+    const rows = chatDB.prepare('SELECT * FROM chat_messages ORDER BY created_at ASC LIMIT 100').all();
+    chatHistory = rows.map(row => ({
+      id: row.id,
+      name: row.name,
+      role: row.role,
+      content: row.content,
+      time: row.time,
+      read: row.read === 1,
+      created_at: row.created_at
+    }));
+    console.log(`[DB] Loaded ${chatHistory.length} chat messages from database`);
+  } catch (e) {
+    console.error('[DB] Failed to load chat history:', e);
+  }
+}
+
+// Save message to database
+function saveChatMessage(message) {
+  try {
+    chatDB.prepare(`
+      INSERT OR REPLACE INTO chat_messages (id, name, role, content, time, read, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(message.id, message.name, message.role, message.content, message.time, message.read ? 1 : 0, message.created_at || new Date().toISOString());
+  } catch (e) {
+    console.error('[DB] Failed to save message:', e);
+  }
+}
+
+// Update message read status in database
+function updateChatMessageRead(msgId) {
+  try {
+    chatDB.prepare('UPDATE chat_messages SET read = 1 WHERE id = ?').run(msgId);
+  } catch (e) {
+    console.error('[DB] Failed to update read status:', e);
+  }
+}
 let aiConfig = {
   provider: 'deepseek',
   husbandPrompt: DEFAULT_HUSBAND_PROMPT,
@@ -131,6 +187,60 @@ let aiConfig = {
 };
 let autoTimer = null;
 let isGenerating = false;
+
+// ==================== MESSAGE CHAT CONFIG ====================
+// Initialize SQLite database
+const chatDB = initDB(path.join(__dirname, 'data', 'chat.db'));
+
+// Initialize: load chat history from DB
+loadChatHistory();
+
+// Hardcoded accounts for couple chat
+const ACCOUNTS = {
+  husband: { password: process.env.HUSBAND_PWD || 'wss520', name: 'wss', avatar: '🧑' },
+  wife:    { password: process.env.WIFE_PWD || 'syq520', name: 'syq', avatar: '👩' }
+};
+
+// Multer configuration for file uploads
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: path.join(__dirname, 'uploads'),
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname);
+      cb(null, `${Date.now()}-${Math.random().toString(36).substr(2, 6)}${ext}`);
+    }
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowed = /\.(jpg|jpeg|png|gif|webp|ogg|wav|mp4|webm)$/i;
+    cb(null, allowed.test(path.extname(file.originalname)));
+  }
+});
+
+// Serve uploads as static files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Web Push setup
+const vapidKeys = {
+  publicKey: process.env.VAPID_PUBLIC_KEY || 'BCThI6CuzG5oXj-Fz0nCzIGJRY55NkP_KyqSLlCV07oP2HYteNnIGbdUCMQZG3vQeKexnJqbKO5kxJm7L6H3pEI',
+  privateKey: process.env.VAPID_PRIVATE_KEY || 'pkN8v2hWBiMRZ7mdMnVmSPzEvqhHaWC1Q1kyp1u0AlM'
+};
+webpush.setVapidDetails(
+  'mailto:couple@example.com',
+  vapidKeys.publicKey,
+  vapidKeys.privateKey
+);
+
+// Auth middleware for message routes
+function requireAuth(req, res, next) {
+  if (req.session && req.session.userId) {
+    return next();
+  }
+  res.status(401).json({ error: 'Not authenticated' });
+}
+
+// Track online status for message chat
+const messageOnlineUsers = new Map(); // userId -> { socketId, lastSeen }
 
 // ==================== AI GENERATION ====================
 
@@ -395,6 +505,140 @@ io.on('connection', (socket) => {
     if (data.husbandPrompt) aiConfig.husbandPrompt = data.husbandPrompt;
     if (data.wifePrompt) aiConfig.wifePrompt = data.wifePrompt;
     broadcast('config', { provider: aiConfig.provider });
+  });
+
+  // ========== CHAT PAGE SOCKET EVENTS ==========
+  
+  // Chat: Join
+  socket.on('chat_join', (data) => {
+    const user = {
+      id: socket.id,
+      name: data.name || '匿名用户',
+      role: data.role || 'observer',
+      joinTime: Date.now()
+    };
+    connectedUsers.set(socket.id, user);
+    
+    // Send history and users to this socket
+    socket.emit('chat_init', {
+      history: chatHistory.slice(-50),
+      users: Array.from(connectedUsers.values())
+    });
+    
+    // Broadcast to others
+    socket.broadcast.emit('chat_userJoined', user);
+    io.emit('chat_users', Array.from(connectedUsers.values()));
+    
+    console.log(`Chat: ${user.name} joined as ${user.role}`);
+  });
+  
+  // Chat: Send message
+  socket.on('chat_message', (data) => {
+    const user = connectedUsers.get(socket.id);
+    if (!user) return;
+    
+    const message = {
+      id: Date.now().toString(),
+      name: data.name,
+      role: data.role,
+      content: data.content,
+      time: new Date().toISOString(),
+      created_at: new Date().toISOString()
+    };
+    
+    chatHistory.push(message);
+    // Keep only last 100 messages in memory
+    if (chatHistory.length > 100) {
+      chatHistory = chatHistory.slice(-100);
+    }
+    
+    // Save to database
+    saveChatMessage(message);
+    
+    io.emit('chat_message', message);
+    
+    // AI responds for digital couple mode
+    if (message.role === 'husband') {
+      aiConfig.lastSpeaker = 'husband';
+      generateAIResponse('wife').then(response => {
+        if (response) {
+          const aiMsg = {
+            id: Date.now().toString(),
+            name: 'syq.',
+            role: 'wife',
+            content: response,
+            time: new Date().toISOString(),
+            created_at: new Date().toISOString()
+          };
+          chatHistory.push(aiMsg);
+          // Save to database
+          saveChatMessage(aiMsg);
+          io.emit('chat_message', aiMsg);
+        }
+      });
+    } else if (message.role === 'wife') {
+      aiConfig.lastSpeaker = 'wife';
+      generateAIResponse('husband').then(response => {
+        if (response) {
+          const aiMsg = {
+            id: Date.now().toString(),
+            name: '老公',
+            role: 'husband',
+            content: response,
+            time: new Date().toISOString(),
+            created_at: new Date().toISOString()
+          };
+          chatHistory.push(aiMsg);
+          // Save to database
+          saveChatMessage(aiMsg);
+          io.emit('chat_message', aiMsg);
+        }
+      });
+    }
+  });
+  
+  // Chat: Typing
+  socket.on('chat_typing', () => {
+    const user = connectedUsers.get(socket.id);
+    if (user) {
+      socket.broadcast.emit('chat_typing', { name: user.name });
+    }
+  });
+  
+  socket.on('chat_typingEnd', () => {
+    socket.broadcast.emit('chat_typingEnd');
+  });
+  
+  // Chat: Mark messages as read
+  socket.on('chat_markRead', () => {
+    const user = connectedUsers.get(socket.id);
+    if (!user) return;
+    
+    // Find the other user's socket
+    const otherRole = user.role === 'husband' ? 'wife' : 'husband';
+    
+    connectedUsers.forEach((u, sid) => {
+      if (u.role === otherRole) {
+        // Notify the other user that this user has read their messages
+        io.to(sid).emit('chat_allRead');
+      }
+    });
+    
+    // Mark unread messages from the other user as read
+    chatHistory.forEach(msg => {
+      if (msg.role !== user.role && msg.role !== 'observer') {
+        msg.read = true;
+        // Update in database
+        updateChatMessageRead(msg.id);
+      }
+    });
+  });
+  
+  // Chat: Update config
+  socket.on('chat_updateConfig', (data) => {
+    if (data.provider) aiConfig.provider = data.provider;
+    if (data.autoSpeak !== undefined) aiConfig.autoSpeak = data.autoSpeak;
+    if (data.autoInterval) aiConfig.autoInterval = data.autoInterval;
   });
 
   // Disconnect
@@ -934,21 +1178,278 @@ app.get('/', (req, res) => {
   res.send(content);
 });
 
-// 聊天页面 - index.html
+// 聊天页面 - chat.html（独立聊天）
 app.get('/chat', (req, res) => {
-  const indexPath = path.join(__dirname, 'index.html');
-  let content = fs.readFileSync(indexPath, 'utf-8');
+  const chatPath = path.join(__dirname, 'chat.html');
+  let content = fs.readFileSync(chatPath, 'utf-8');
   
-  // 添加版本号防止缓存
   const version = Date.now();
-  content = content.replace(/<script>/g, `<script>\nconsole.log('Version: ${version}');`);
+  content = content.replace(/<script>/g, `<script>\nconsole.log('Chat Version: ${version}');`);
   
   res.setHeader('Content-Type', 'text/html');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
   res.send(content);
 });
+
+// 数字人对话页面 - index.html（AI 双方对话）
+app.get('/digital', (req, res) => {
+  const indexPath = path.join(__dirname, 'index.html');
+  let content = fs.readFileSync(indexPath, 'utf-8');
+  
+  const version = Date.now();
+  content = content.replace(/<script>/g, `<script>\nconsole.log('Digital Version: ${version}');`);
+  
+  res.setHeader('Content-Type', 'text/html');
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.send(content);
+});
+
+// ==================== MESSAGE CHAT API ====================
+
+// Serve message page
+app.get('/message', (req, res) => {
+  const pagePath = path.join(__dirname, 'message.html');
+  if (!fs.existsSync(pagePath)) {
+    return res.status(404).send('Message page not found');
+  }
+  let content = fs.readFileSync(pagePath, 'utf-8');
+  // Inject VAPID public key
+  content = content.replace('__VAPID_PUBLIC_KEY__', vapidKeys.publicKey);
+  // Inject session info if logged in
+  content = content.replace('__USER_ID__', req.session.userId || '');
+  content = content.replace('__USER_NAME__', (req.session.userId && ACCOUNTS[req.session.userId]) ? ACCOUNTS[req.session.userId].name : '');
+  res.setHeader('Content-Type', 'text/html');
+  res.setHeader('Cache-Control', 'no-store');
+  res.send(content);
+});
+
+// Login
+app.post('/api/message/login', (req, res) => {
+  const { userId, password } = req.body;
+  if (ACCOUNTS[userId] && ACCOUNTS[userId].password === password) {
+    req.session.userId = userId;
+    req.session.userName = ACCOUNTS[userId].name;
+    return res.json({ success: true, userId, name: ACCOUNTS[userId].name });
+  }
+  res.status(401).json({ success: false, error: '账号或密码错误' });
+});
+
+// Logout
+app.post('/api/message/logout', (req, res) => {
+  req.session.destroy();
+  res.json({ success: true });
+});
+
+// Message history (paginated)
+app.get('/api/message/history', requireAuth, (req, res) => {
+  const before = req.query.before || null;
+  const limit = parseInt(req.query.limit) || 30;
+  const userId = req.session.userId;
+  const partnerId = userId === 'husband' ? 'wife' : 'husband';
+
+  let stmt;
+  if (before) {
+    stmt = chatDB.prepare(
+      `SELECT * FROM messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) AND created_at < ? ORDER BY created_at DESC LIMIT ?`
+    );
+    var messages = stmt.all(userId, partnerId, partnerId, userId, before, limit);
+  } else {
+    stmt = chatDB.prepare(
+      `SELECT * FROM messages WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) ORDER BY created_at DESC LIMIT ?`
+    );
+    var messages = stmt.all(userId, partnerId, partnerId, userId, limit);
+  }
+  res.json(messages.reverse());
+});
+
+// Mark messages as read
+app.post('/api/message/read', requireAuth, (req, res) => {
+  const userId = req.session.userId;
+  const { messageIds } = req.body;
+
+  if (messageIds && messageIds.length > 0) {
+    const now = new Date().toISOString();
+    const placeholders = messageIds.map(() => '?').join(',');
+    chatDB.prepare(
+      `UPDATE messages SET status = 'read', read_at = ? WHERE id IN (${placeholders}) AND receiver_id = ? AND status != 'read'`
+    ).run(now, ...messageIds, userId);
+
+    // Notify sender(s)
+    const senders = chatDB.prepare(
+      `SELECT DISTINCT sender_id FROM messages WHERE id IN (${placeholders})`
+    ).all(...messageIds);
+
+    senders.forEach(({ sender_id }) => {
+      const sender = messageOnlineUsers.get(sender_id);
+      if (sender) {
+        messageIO.to(sender.socketId).emit('chat:message:read', { messageIds, readAt: now });
+      }
+    });
+  } else {
+    // Mark all unread as read
+    const now = new Date().toISOString();
+    chatDB.prepare(
+      `UPDATE messages SET status = 'read', read_at = ? WHERE receiver_id = ? AND status != 'read'`
+    ).run(now, userId);
+  }
+  res.json({ success: true });
+});
+
+// File upload
+app.post('/api/message/upload', requireAuth, upload.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file' });
+  const url = `/uploads/${req.file.filename}`;
+  res.json({ success: true, url, type: req.file.mimetype });
+});
+
+// Push subscription
+app.post('/api/message/push/subscribe', requireAuth, (req, res) => {
+  const { endpoint, keys } = req.body.subscription;
+  chatDB.prepare(
+    `INSERT OR REPLACE INTO push_subscriptions (user_id, endpoint, p256dh, auth, created_at) VALUES (?, ?, ?, ?, ?)`
+  ).run(req.session.userId, endpoint, keys.p256dh, keys.auth, new Date().toISOString());
+  res.json({ success: true });
+});
+
+app.post('/api/message/push/unsubscribe', requireAuth, (req, res) => {
+  chatDB.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?')
+    .run(req.body.endpoint);
+  res.json({ success: true });
+});
+
+// ==================== MESSAGE CHAT SOCKET.IO ====================
+const messageIO = io.of('/message');
+
+messageIO.use((socket, next) => {
+  const userId = socket.handshake.auth.userId;
+  if (!userId || !ACCOUNTS[userId]) {
+    return next(new Error('Unauthorized'));
+  }
+  socket.userId = userId;
+  next();
+});
+
+messageIO.on('connection', (socket) => {
+  const userId = socket.userId;
+
+  // Track online status
+  messageOnlineUsers.set(userId, { socketId: socket.id, lastSeen: Date.now() });
+  messageIO.emit('presence', { userId, status: 'online' });
+
+  // Send unread count
+  const unreadCount = chatDB.prepare(
+    `SELECT COUNT(*) as count FROM messages WHERE receiver_id = ? AND status != 'read'`
+  ).get(userId).count;
+  socket.emit('unread', { count: unreadCount });
+
+  // ---- Chat message ----
+  socket.on('chat:message', (data) => {
+    const { type, content, duration } = data;
+    const receiverId = userId === 'husband' ? 'wife' : 'husband';
+    const messageId = uuidv4();
+
+    const message = {
+      id: messageId,
+      sender_id: userId,
+      receiver_id: receiverId,
+      type: type || 'text',
+      content,
+      duration: duration || 0,
+      status: 'sent',
+      created_at: new Date().toISOString()
+    };
+
+    // Save to DB
+    chatDB.prepare(
+      `INSERT INTO messages (id, sender_id, receiver_id, type, content, duration, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(message.id, message.sender_id, message.receiver_id, message.type,
+      message.content, message.duration, message.status, message.created_at);
+
+    // Send back to sender (confirmation)
+    socket.emit('chat:message:sent', message);
+
+    // Deliver to receiver if online
+    const receiver = messageOnlineUsers.get(receiverId);
+    if (receiver) {
+      message.status = 'delivered';
+      chatDB.prepare(`UPDATE messages SET status = 'delivered' WHERE id = ?`).run(message.id);
+      messageIO.to(receiver.socketId).emit('chat:message:new', message);
+      socket.emit('chat:message:status', { id: message.id, status: 'delivered' });
+    } else {
+      // Send push notification
+      sendPushNotification(receiverId, message);
+    }
+  });
+
+  // ---- Read receipts ----
+  socket.on('chat:read', (data) => {
+    const { messageIds } = data;
+    if (!messageIds || !messageIds.length) return;
+
+    const now = new Date().toISOString();
+    const placeholders = messageIds.map(() => '?').join(',');
+    chatDB.prepare(
+      `UPDATE messages SET status = 'read', read_at = ? WHERE id IN (${placeholders}) AND receiver_id = ? AND status != 'read'`
+    ).run(now, ...messageIds, userId);
+
+    const senders = chatDB.prepare(
+      `SELECT DISTINCT sender_id FROM messages WHERE id IN (${placeholders})`
+    ).all(...messageIds);
+
+    senders.forEach(({ sender_id }) => {
+      const sender = messageOnlineUsers.get(sender_id);
+      if (sender) {
+        messageIO.to(sender.socketId).emit('chat:message:read', { messageIds, readAt: now });
+      }
+    });
+  });
+
+  // ---- Typing indicator ----
+  socket.on('chat:typing', () => {
+    const receiverId = userId === 'husband' ? 'wife' : 'husband';
+    const receiver = messageOnlineUsers.get(receiverId);
+    if (receiver) {
+      messageIO.to(receiver.socketId).emit('chat:typing', { userId });
+    }
+  });
+
+  // ---- Disconnect ----
+  socket.on('disconnect', () => {
+    messageOnlineUsers.delete(userId);
+    messageIO.emit('presence', { userId, status: 'offline', lastSeen: Date.now() });
+  });
+});
+
+// Push notification helper
+async function sendPushNotification(receiverId, message) {
+  const subscriptions = chatDB.prepare(
+    `SELECT * FROM push_subscriptions WHERE user_id = ?`
+  ).all(receiverId);
+
+  const senderName = ACCOUNTS[message.sender_id]?.name || message.sender_id;
+  const payload = JSON.stringify({
+    title: senderName,
+    body: message.type === 'text' ? message.content :
+          message.type === 'image' ? '[图片]' :
+          message.type === 'voice' ? '[语音消息]' : '[消息]',
+    tag: `chat-${message.id}`,
+    data: { url: '/message' }
+  });
+
+  for (const sub of subscriptions) {
+    try {
+      await webpush.sendNotification({
+        endpoint: sub.endpoint,
+        keys: { p256dh: sub.p256dh, auth: sub.auth }
+      }, payload);
+    } catch (err) {
+      console.error('[Push] Failed:', err.statusCode);
+      if (err.statusCode === 410) {
+        chatDB.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').run(sub.endpoint);
+      }
+    }
+  }
+}
 
 // 其他路径 fallback 到主页
 app.get('*', (req, res) => {

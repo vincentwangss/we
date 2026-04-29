@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>💬 聊天</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    :root {
+      --primary: #e8b4d9;
+      --secondary: #f5e6f0;
+      --accent: #d4839c;
+      --text: #5a4a5c;
+      --text-light: #8a7a8c;
+      --white: #fff;
+      --shadow: rgba(200, 150, 180, 0.15);
+      --border: #e8d4e8;
+      --my-msg-bg: #e8f5e9;
+      --my-msg-border: #81c784;
+      --other-msg-bg: #f5f5f5;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: linear-gradient(135deg, #fef9fb 0%, #f8e8f2 50%, #f5e0eb 100%);
+      min-height: 100vh;
+      color: var(--text);
+    }
+    
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 20px 16px 100px;
+    }
+    
+    /* Header */
+    .header {
+      background: var(--white);
+      padding: 16px 20px;
+      border-radius: 20px;
+      box-shadow: 0 4px 20px var(--shadow);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .header h1 {
+      font-size: 18px;
+      color: var(--accent);
+    }
+    
+    .header-right {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .header-btn {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 50%;
+      transition: background 0.2s;
+    }
+    
+    .header-btn:hover {
+      background: var(--secondary);
+    }
+    
+    /* Join Modal */
+    .join-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    
+    .join-modal.hidden {
+      display: none;
+    }
+    
+    .join-card {
+      background: var(--white);
+      padding: 32px 28px;
+      border-radius: 24px;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+      text-align: center;
+    }
+    
+    .join-card h2 {
+      font-size: 22px;
+      margin-bottom: 8px;
+      color: var(--accent);
+    }
+    
+    .join-card p {
+      color: var(--text-light);
+      margin-bottom: 24px;
+      font-size: 14px;
+    }
+    
+    .pwd-wrapper {
+      position: relative;
+      margin-bottom: 16px;
+    }
+    
+    .pwd-wrapper input {
+      width: 100%;
+      padding: 14px 50px 14px 16px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    
+    .pwd-wrapper input:focus {
+      border-color: var(--accent);
+    }
+    
+    .toggle-pwd-btn {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 20px;
+      padding: 4px;
+      opacity: 0.5;
+    }
+    
+    .toggle-pwd-btn:hover {
+      opacity: 1;
+    }
+    
+    .join-card input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 16px;
+      margin-bottom: 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    
+    .join-card input:focus {
+      border-color: var(--accent);
+    }
+    
+    .role-select {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    
+    .role-option {
+      flex: 1;
+      padding: 12px 8px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      background: var(--white);
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    
+    .role-option:hover {
+      border-color: var(--accent);
+    }
+    
+    .role-option.selected {
+      border-color: var(--accent);
+      background: var(--secondary);
+    }
+    
+    .role-option .icon {
+      font-size: 28px;
+      display: block;
+      margin-bottom: 4px;
+    }
+    
+    .role-option .name {
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .join-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, var(--accent), var(--primary));
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .join-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(212, 131, 156, 0.4);
+    }
+    
+    /* Chat Area */
+    .chat-area {
+      background: var(--white);
+      border-radius: 20px;
+      box-shadow: 0 4px 20px var(--shadow);
+      overflow: hidden;
+    }
+    
+    .messages {
+      height: calc(100vh - 200px);
+      min-height: 400px;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    
+    .messages::-webkit-scrollbar {
+      width: 5px;
+    }
+    
+    .messages::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+    
+    /* Message */
+    .message {
+      margin-bottom: 16px;
+      display: flex;
+      gap: 10px;
+    }
+    
+    .message.my {
+      flex-direction: row-reverse;
+    }
+    
+    .message .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    
+    .message.my .avatar {
+      background: var(--accent);
+    }
+    
+    .message .bubble {
+      max-width: 75%;
+      padding: 12px 16px;
+      border-radius: 18px;
+      background: var(--other-msg-bg);
+      position: relative;
+    }
+    
+    .message.my .bubble {
+      background: var(--my-msg-bg);
+      border: 1px solid var(--my-msg-border);
+    }
+    
+    .message .sender {
+      font-size: 12px;
+      color: var(--text-light);
+      margin-bottom: 4px;
+    }
+    
+    .message .content {
+      line-height: 1.6;
+      word-break: break-word;
+    }
+    
+    .message .time {
+      font-size: 11px;
+      color: var(--text-light);
+      margin-top: 4px;
+      text-align: right;
+    }
+    
+    /* Read receipt */
+    .read-receipt {
+      font-size: 12px;
+      color: var(--text-light);
+      margin-left: 4px;
+    }
+    
+    .read-receipt.sent { color: #999; }
+    .read-receipt.read { color: #4caf50; }
+    
+    .message .time-row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      margin-top: 4px;
+    }
+    
+    /* System message */
+    .system-msg {
+      text-align: center;
+      padding: 8px 16px;
+      margin: 12px 0;
+    }
+    
+    .system-msg span {
+      background: var(--secondary);
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      color: var(--text-light);
+    }
+    
+    /* Typing indicator */
+    .typing {
+      display: none;
+      padding: 8px 20px;
+      color: var(--text-light);
+      font-size: 13px;
+    }
+    
+    .typing.show {
+      display: block;
+    }
+    
+    .typing-dots span {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: var(--text-light);
+      border-radius: 50%;
+      margin: 0 2px;
+      animation: bounce 1.4s infinite ease-in-out;
+    }
+    
+    .typing-dots span:nth-child(1) { animation-delay: 0s; }
+    .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+    
+    @keyframes bounce {
+      0%, 80%, 100% { transform: translateY(0); }
+      40% { transform: translateY(-6px); }
+    }
+    
+    /* Input Area */
+    .input-area {
+      padding: 16px 20px;
+      background: var(--white);
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+    }
+    
+    .input-area textarea {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid var(--border);
+      border-radius: 24px;
+      font-size: 15px;
+      resize: none;
+      outline: none;
+      max-height: 120px;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    
+    .input-area textarea:focus {
+      border-color: var(--accent);
+    }
+    
+    .send-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--primary));
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      transition: transform 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .send-btn:hover {
+      transform: scale(1.05);
+    }
+    
+    .send-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    /* Online users */
+    .online-users {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      background: var(--secondary);
+      font-size: 13px;
+      color: var(--text-light);
+    }
+    
+    .online-users .dot {
+      width: 8px;
+      height: 8px;
+      background: #4caf50;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .user-list {
+      display: flex;
+      gap: 6px;
+    }
+    
+    .user-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+    
+    /* Settings Panel */
+    .settings-panel {
+      position: fixed;
+      top: 0;
+      right: -320px;
+      width: 300px;
+      height: 100%;
+      background: var(--white);
+      box-shadow: -4px 0 20px var(--shadow);
+      z-index: 1001;
+      transition: right 0.3s;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    
+    .settings-panel.show {
+      right: 0;
+    }
+    
+    .settings-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    
+    .settings-header h3 {
+      font-size: 18px;
+    }
+    
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: var(--text-light);
+    }
+    
+    .setting-item {
+      margin-bottom: 20px;
+    }
+    
+    .setting-item label {
+      display: block;
+      font-size: 14px;
+      color: var(--text-light);
+      margin-bottom: 8px;
+    }
+    
+    .setting-item select,
+    .setting-item input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px;
+      outline: none;
+    }
+    
+    /* Overlay */
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s;
+      z-index: 1000;
+    }
+    
+    .overlay.show {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    /* Mobile responsive */
+    @media (max-width: 480px) {
+      .container {
+        padding: 12px 8px 80px;
+      }
+      
+      .messages {
+        height: calc(100vh - 180px);
+      }
+    }
+    
+    /* Emoji Picker */
+    .emoji-btn {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 50%;
+      transition: background 0.2s;
+      line-height: 1;
+    }
+    
+    .emoji-btn:hover {
+      background: var(--secondary);
+    }
+    
+    .emoji-panel {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%) scale(0.9);
+      width: 320px;
+      max-width: calc(100vw - 32px);
+      background: var(--white);
+      border-radius: 16px;
+      box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.15);
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.2s ease-out;
+      z-index: 100;
+      overflow: hidden;
+    }
+    
+    .emoji-panel.show {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(-50%) scale(1);
+    }
+    
+    .emoji-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      padding: 0 8px;
+      background: #fafafa;
+    }
+    
+    .emoji-tab {
+      flex: 1;
+      padding: 10px 0;
+      text-align: center;
+      font-size: 18px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    
+    .emoji-tab:hover {
+      background: rgba(0,0,0,0.03);
+    }
+    
+    .emoji-tab.active {
+      border-bottom-color: var(--accent);
+    }
+    
+    .emoji-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 4px;
+      padding: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    
+    .emoji-grid::-webkit-scrollbar {
+      width: 4px;
+    }
+    
+    .emoji-grid::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+    
+    .emoji-item {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: background 0.15s;
+    }
+    
+    .emoji-item:hover {
+      background: var(--secondary);
+    }
+    
+    .emoji-item:active {
+      background: var(--border);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>💬 聊天</h1>
+      <div class="header-right">
+        <button class="header-btn" onclick="toggleSettings()" title="设置">⚙️</button>
+        <button class="header-btn" onclick="logout()" title="退出">🚪</button>
+      </div>
+    </div>
+    
+    <!-- Chat Area -->
+    <div class="chat-area">
+      <!-- Online Users -->
+      <div class="online-users">
+        <span class="dot"></span>
+        <span id="onlineCount">0 人在线</span>
+        <div class="user-list" id="userList"></div>
+      </div>
+      
+      <!-- Messages -->
+      <div class="messages" id="messages"></div>
+      
+      <!-- Typing -->
+      <div class="typing" id="typing">
+        <span class="typing-dots"><span></span><span></span><span></span></span>
+        <span id="typingName"></span>正在输入...
+      </div>
+      
+      <!-- Input -->
+      <div class="input-area">
+        <button class="emoji-btn" onclick="toggleEmojiPanel()">😀</button>
+        <textarea id="inputMsg" rows="1" placeholder="输入消息..." onkeydown="handleKeyDown(event)" oninput="autoResize(this)"></textarea>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()">↑</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Emoji Panel -->
+  <div class="emoji-panel" id="emojiPanel">
+    <div class="emoji-tabs">
+      <div class="emoji-tab active" data-category="smile" onclick="switchEmojiTab(this)">😀</div>
+      <div class="emoji-tab" data-category="love" onclick="switchEmojiTab(this)">❤️</div>
+      <div class="emoji-tab" data-category="hand" onclick="switchEmojiTab(this)">👋</div>
+      <div class="emoji-tab" data-category="animal" onclick="switchEmojiTab(this)">🐶</div>
+      <div class="emoji-tab" data-category="food" onclick="switchEmojiTab(this)">🍕</div>
+      <div class="emoji-tab" data-category="activity" onclick="switchEmojiTab(this)">⚽</div>
+      <div class="emoji-tab" data-category="object" onclick="switchEmojiTab(this)">💡</div>
+      <div class="emoji-tab" data-category="symbol" onclick="switchEmojiTab(this)">✅</div>
+    </div>
+    <div class="emoji-grid" id="emojiGrid"></div>
+  </div>
+  
+  <!-- Join Modal -->
+  <div class="join-modal" id="joinModal">
+    <div class="join-card">
+      <h2>💬 加入聊天</h2>
+      <p>登录后开始聊天，可查看已读状态</p>
+      
+      <div class="pwd-wrapper">
+        <input type="password" id="userPassword" placeholder="密码" />
+        <button type="button" id="togglePwd" class="toggle-pwd-btn" onclick="togglePassword()">👁</button>
+      </div>
+      
+      <div class="role-select" style="margin-top: 8px;">
+        <div class="role-option selected" data-role="husband" onclick="selectRole(this)">
+          <span class="icon">👨</span>
+          <span class="name">老公</span>
+        </div>
+        <div class="role-option" data-role="wife" onclick="selectRole(this)">
+          <span class="icon">👩</span>
+          <span class="name">老婆</span>
+        </div>
+      </div>
+      
+      <button class="join-btn" onclick="joinChat()">登录并进入 →</button>
+    </div>
+  </div>
+  
+  <!-- Settings Panel -->
+  <div class="overlay" id="overlay" onclick="toggleSettings()"></div>
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-header">
+      <h3>⚙️ 设置</h3>
+      <button class="close-btn" onclick="toggleSettings()">×</button>
+    </div>
+    
+    <div class="setting-item">
+      <label>AI 提供商</label>
+      <select id="aiProvider" onchange="updateConfig()">
+        <option value="deepseek">DeepSeek（推荐）</option>
+        <option value="openai">OpenAI</option>
+        <option value="moonshot">Moonshot</option>
+      </select>
+    </div>
+    
+    <div class="setting-item">
+      <label>自动朗读 AI 消息</label>
+      <select id="autoSpeak">
+        <option value="off">关闭</option>
+        <option value="on">开启</option>
+      </select>
+    </div>
+    
+    <div class="setting-item">
+      <label>发言间隔（秒）</label>
+      <input type="number" id="autoInterval" value="8" min="3" max="30" />
+    </div>
+    
+    <button class="join-btn" onclick="saveSettings()">保存设置</button>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    // Emoji data
+    const EMOJI_CATEGORIES = {
+      smile: ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓', '🧐', '😕', '😟', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖'],
+      love: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '♥️', '😻', '😽', '💋', '💌', '💘', '💝', '👩‍❤️‍👨', '👩‍❤️‍👩', '👨‍❤️‍👨', '👩‍❤️‍👦', '👨‍❤️‍👧', '👩‍❤️‍👦‍👦', '💑', '💏', '☕', '🍷', '🍾', '🍻', '🥂', '🍸', '🍹', '🍵', '🧃', '🥤', '🧋', '🍶', '🍺', '🍻', '🥃', '🍷', '🥄', '🍴', '🍽️', '🥣', '🥛', '🍼', '☕', '🍵', '🍶', '🍷', '🍸', '🍹', '🍺', '🍻', '🥂', '🥃', '🍷'],
+      hand: ['👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦿', '🦵', '🦶', '👂', '🦻', '👃', '🧠', '🫀', '🫁', '🦷', '🦴', '👀', '👁️', '👅', '👄', '👶', '🧒', '👦', '👧', '🧑', '👱', '👨', '🧔', '👩', '🧓', '👴', '👵', '🙍', '🙎', '🙅', '🙆', '💁', '🙋', '🧏', '🙇', '🤦', '🤷', '👮', '🕵️', '💂', '🥷', '👷', '🤴', '👸', '👳', '👲', '🧕', '🤵', '👰', '🤰', '🤱', '👼', '🎒', '👑', '📿', '💄', '💍', '💎', '🐵', '🐒', '🦍', '🦧', '🐶', '🐕', '🦮', '🐩', '🐺', '🦊', '🦁', '🐯', '🐱', '🐶', '🐰', '🐻', '🐼', '🐻‍❄️', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵'],
+      animal: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐻‍❄️', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🙈', '🙉', '🙊', '🐒', '🐔', '🐧', '🐦', '🐤', '🐣', '🐥', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🪱', '🐛', '🦋', '🐌', '🐞', '🐜', '🪰', '🪲', '🪳', '🦟', '🦗', '🕷️', '🦂', '🐢', '🐍', '🦎', '🦖', '🦕', '🐙', '🦑', '🦐', '🦞', '🦀', '🐡', '🐠', '🐟', '🐬', '🐳', '🐋', '🦈', '🐊', '🐅', '🐆', '🦓', '🦍', '🦧', '🦣', '🐘', '🦛', '🦏', '🐪', '🐫', '🦒', '🦘', '🦬', '🐃', '🐂', '🐄', '🐎', '🐖', '🐏', '🐑', '🦙', '🐐', '🦌', '🐕', '🐩', '🦮', '🐈', '🐓', '🦃', '🦚', '🦜', '🦢', '🦩', '🕊️', '🐇', '🦝', '🦨', '🦡', '🦫', '🦦', '🦥', '🐁', '🐀', '🐿️', '🦔'],
+      food: ['🍕', '🍔', '🍟', '🌭', '🍿', '🧂', '🥓', '🥚', '🍳', '🧇', '🥞', '🧈', '🍞', '🥐', '🥖', '🥨', '🥯', '🧇', '🥗', '🥙', '🥪', '🌮', '🌯', '🥫', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱', '🥟', '🦪', '🍤', '🍙', '🍚', '🍘', '🍥', '🥠', '🥮', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '🌰', '🥜', '🍯', '🥛', '🍼', '☕', '🍵', '🧃', '🥤', '🧋', '🍶', '🍺', '🍻', '🥂', '🥃', '🍷', '🥄', '🍴', '🍽️', '🥣', '🥡', '🥢', '🧂', '🍽️', '🍴', '🍳', '🥓', '🥩', '🍗', '🍖', '🦴', '🌭', '🍔', '🍟', '🍕', '🥪', '🥙', '🧆', '🌮', '🌯', '🥗', '🥘', '🥫', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱'],
+      activity: ['⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🥏', '🎱', '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🪃', '🥅', '⛳', '🪁', '🏹', '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛼', '🛷', '⛸️', '🥌', '🎿', '⛷️', '🏂', '🪂', '🏋️', '🤼', '🤸', '🤺', '⛹️', '🤾', '🏌️', '🏇', '⛳', '🧗', '🏄', '🏊', '🤽', '🚣', '🧘', '🏋️', '🚴', '🚵', '🎪', '🎭', '🩰', '🎨', '🎬', '🎤', '🎧', '🎼', '🎹', '🥁', '🪘', '🎷', '🎺', '🪗', '🎸', '🪕', '🎻', '🎲', '♟️', '🎯', '🎳', '🎮', '🕹️', '🎰', '🧩', '🪅', '🪆', '🪄', '🎁', '🎀', '🎊', '🎉', '🎈', '🏆', '🏅', '🥇', '🥈', '🥉', '🎖️', '🎗️', '🎟️', '🎫', '🎙️', '🎚️', '🎛️', '🎤', '🎧', '📻', '🎵', '🎶', '🎼', '🎹', '🎷', '🎺', '🎸', '🪕'],
+      object: ['💡', '🔦', '🏮', '🪔', '📱', '📲', '💻', '🖥️', '🖨️', '⌨️', '🖱️', '🖲️', '💽', '💾', '💿', '📀', '📼', '📷', '📸', '📹', '🎥', '📽️', '🎞️', '📞', '☎️', '📟', '📠', '📺', '📻', '🎙️', '🎚️', '🎛️', '🧭', '⏱️', '⏲️', '⏰', '🕰️', '⌛', '⏳', '📡', '🔋', '🔌', '💎', '🔧', '🪛', '🔩', '⚙️', '🧱', '🪜', '🧲', '🔫', '💣', '🧨', '🪓', '🔪', '🗡️', '⚔️', '🛡️', '🚬', '⚰️', '🪦', '⚱️', '🏺', '🔮', '📿', '🧿', '💈', '⚗️', '🔭', '🔬', '🕳️', '🩹', '🩺', '💊', '💉', '🩸', '🧬', '🦠', '🧫', '🧪', '🌡️', '🧹', '🪠', '🧺', '🧻', '🚽', '🚿', '🛁', '🛀', '🧼', '🪥', '🪒', '🧽', '🪣', '🧴', '🛎️', '🔑', '🗝️', '🚪', '🪑', '🛋️', '🛏️', '🛌', '🧸', '🪆', '🖼️', '🪞', '🪟', '🛍️', '🛒', '🎁', '🎈', '🎏', '🎀', '🪄', '🎊', '🎉', '🎋', '🎍'],
+      symbol: ['✅', '☑️', '✔️', '❌', '❎', '➖', '➕', '➗', '✖️', '♾️', '💲', '©️', '®️', '™️', '#️⃣', '*️⃣', '0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟', '🔠', '🔡', '🔢', '🔣', '🔤', '🅰️', '🆎', '🅱️', '🆑', '🆒', '🆓', '🆔', '🆕', '🆖', '🆗', '🆘', '🆙', '🆚', '🈁', '🈂️', '🈷️', '🈶', '🈯', '🉐', '🈹', '🈚', '🈲', '🉑', '🈸', '🈴', '🈳', '㊗️', '㊙️', '🈺', '🈵', '🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⚫', '⚪', '🟤', '🔺', '🔻', '🔸', '🔹', '🔶', '🔷', '🔳', '🔲', '▪️', '▫️', '◾', '◽', '◼️', '◻️', '🟥', '🟧', '🟨', '🟩', '🟦', '🟪', '⬛', '⬜', '🟫', '🔈', '🔇', '🔉', '🔊', '🔔', '🔕', '📣', '📢', '💬', '💭', '🗯️', '♠️', '♣️', '♥️', '♦️', '🃏', '🎴', '🀄', '🕐', '🕑', '🕒', '🕓', '🕔', '🕕', '🕖', '🕗', '🕘', '🕙', '🕚', '🕛']
+    };
+    
+    // Config
+    var SERVER_URL = window.location.protocol === 'file:' ? 'http://localhost:3000' : '';
+    var socket = typeof io !== 'undefined' ? io(SERVER_URL) : null;
+    var myName = '';
+    var myRole = '';
+    var users = [];
+    var isLoggedIn = false;
+    var autoConfig = { autoSpeak: false, autoInterval: 8 };
+    
+    // Role names
+    function roleName(role) {
+      const names = { husband: '老公', wife: '老婆', observer: '旁观' };
+      return names[role] || role;
+    }
+    
+    // Avatar emoji
+    function roleAvatar(role) {
+      const avatars = { husband: '👨', wife: '👩', observer: '👁️' };
+      return avatars[role] || '👤';
+    }
+    
+    // Select role
+    function selectRole(el) {
+      document.querySelectorAll('.role-option').forEach(opt => opt.classList.remove('selected'));
+      el.classList.add('selected');
+      const role = el.dataset.role;
+      myName = role === 'husband' ? 'wss' : 'syq';
+    }
+    
+    // Toggle password visibility
+    function togglePassword() {
+      const pwdInput = document.getElementById('userPassword');
+      const toggleBtn = document.getElementById('togglePwd');
+      if (pwdInput.type === 'password') {
+        pwdInput.type = 'text';
+        toggleBtn.textContent = '🙈';
+      } else {
+        pwdInput.type = 'password';
+        toggleBtn.textContent = '👁';
+      }
+    }
+    
+    // Join chat (login required)
+    async function joinChat() {
+      const password = document.getElementById('userPassword').value;
+      const roleEl = document.querySelector('.role-option.selected');
+      const role = roleEl ? roleEl.dataset.role : 'husband';
+      const name = role === 'husband' ? 'husband' : 'wife';
+      
+      myRole = role;
+      myName = role === 'husband' ? 'wss' : 'syq';
+      
+      // Login first
+      try {
+        const res = await fetch('/api/message/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: name, password: password })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          isLoggedIn = true;
+        } else {
+          alert(data.error || '登录失败');
+          return;
+        }
+      } catch (e) {
+        console.error('Login error:', e);
+      }
+      
+      socket.emit('chat_join', { name, role, password });
+      document.getElementById('joinModal').classList.add('hidden');
+    }
+    
+    // Mark messages as read
+    function markAsRead() {
+      if (socket && isLoggedIn) {
+        socket.emit('chat_markRead');
+      }
+    }
+    
+    // Logout
+    function logout() {
+      if (confirm('确定退出聊天？')) {
+        location.reload();
+      }
+    }
+    
+    // Handle key down
+    function handleKeyDown(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    }
+    
+    // Auto resize textarea
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+    }
+    
+    // Send message
+    function sendMessage() {
+      const input = document.getElementById('inputMsg');
+      const text = input.value.trim();
+      
+      if (!text) return;
+      
+      socket.emit('chat_message', { 
+        name: myName, 
+        role: myRole, 
+        content: text 
+      });
+      
+      input.value = '';
+      input.style.height = 'auto';
+    }
+    
+    // Render message
+    function renderMessage(msg) {
+      const container = document.getElementById('messages');
+      const isMy = msg.name === myName && msg.role === myRole;
+      const time = new Date(msg.time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      
+      // 已读状态：只有自己发的消息才显示
+      let readReceipt = '';
+      if (isMy && isLoggedIn) {
+        const otherOnline = users.some(u => u.role !== myRole && u.role !== 'observer');
+        if (msg.read) {
+          readReceipt = '<span class="read-receipt read">✓✓</span>';
+        } else if (otherOnline) {
+          readReceipt = '<span class="read-receipt sent">✓</span>';
+        } else {
+          readReceipt = '<span class="read-receipt sent">✓</span>';
+        }
+      }
+      
+      const div = document.createElement('div');
+      div.className = `message ${isMy ? 'my' : ''}`;
+      div.setAttribute('data-id', msg.id);
+      div.innerHTML = `
+        <div class="avatar">${roleAvatar(msg.role)}</div>
+        <div class="bubble">
+          <div class="sender">${msg.name} ${roleName(msg.role) !== '旁观' ? `(${roleName(msg.role)})` : ''}</div>
+          <div class="content">${escapeHtml(msg.content)}</div>
+          <div class="time-row">
+            <div class="time">${time}</div>
+            ${readReceipt}
+          </div>
+        </div>
+      `;
+      
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+    
+    // Update read receipts for a message
+    function updateMessageRead(msgId, isRead) {
+      const msgEl = document.querySelector(`[data-id="${msgId}"]`);
+      if (msgEl) {
+        const receipt = msgEl.querySelector('.read-receipt');
+        if (receipt) {
+          receipt.className = isRead ? 'read-receipt read' : 'read-receipt sent';
+          receipt.textContent = isRead ? '✓✓' : '✓';
+        }
+      }
+    }
+    
+    // Add system message
+    function addSystemMsg(content) {
+      const container = document.getElementById('messages');
+      const div = document.createElement('div');
+      div.className = 'system-msg';
+      div.innerHTML = `<span>${content}</span>`;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+    
+    // Show typing
+    function showTyping(name) {
+      document.getElementById('typing').classList.add('show');
+      document.getElementById('typingName').textContent = name;
+    }
+    
+    // Hide typing
+    function hideTyping() {
+      document.getElementById('typing').classList.remove('show');
+    }
+    
+    // Update user list
+    function updateUserList(list) {
+      users = list || users;
+      document.getElementById('onlineCount').textContent = `${users.length} 人在线`;
+      
+      const userList = document.getElementById('userList');
+      userList.innerHTML = users.map(u => 
+        `<div class="user-avatar" title="${u.name}">${roleAvatar(u.role)}</div>`
+      ).join('');
+    }
+    
+    // Settings
+    function toggleSettings() {
+      document.getElementById('overlay').classList.toggle('show');
+      document.getElementById('settingsPanel').classList.toggle('show');
+    }
+    
+    function updateConfig() {
+      if (socket && socket.connected) {
+        socket.emit('chat_updateConfig', {
+          provider: document.getElementById('aiProvider').value,
+          autoSpeak: document.getElementById('autoSpeak').value === 'on',
+          autoInterval: parseInt(document.getElementById('autoInterval').value)
+        });
+      }
+    }
+    
+    function saveSettings() {
+      updateConfig();
+      toggleSettings();
+      addSystemMsg('设置已保存');
+    }
+    
+    // Escape HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    // Emoji Picker Functions
+    let currentEmojiTab = 'smile';
+    
+    function toggleEmojiPanel() {
+      const panel = document.getElementById('emojiPanel');
+      panel.classList.toggle('show');
+      if (panel.classList.contains('show')) {
+        renderEmojiGrid(currentEmojiTab);
+      }
+    }
+    
+    function switchEmojiTab(el) {
+      document.querySelectorAll('.emoji-tab').forEach(tab => tab.classList.remove('active'));
+      el.classList.add('active');
+      currentEmojiTab = el.dataset.category;
+      renderEmojiGrid(currentEmojiTab);
+    }
+    
+    function renderEmojiGrid(category) {
+      const grid = document.getElementById('emojiGrid');
+      const emojis = EMOJI_CATEGORIES[category] || [];
+      grid.innerHTML = emojis.map(emoji =>
+        `<div class="emoji-item" onclick="insertEmoji('${emoji}')">${emoji}</div>`
+      ).join('');
+    }
+    
+    function insertEmoji(emoji) {
+      const input = document.getElementById('inputMsg');
+      const start = input.selectionStart;
+      const end = input.selectionEnd;
+      const text = input.value;
+      input.value = text.substring(0, start) + emoji + text.substring(end);
+      input.setSelectionRange(start + emoji.length, start + emoji.length);
+      input.focus();
+    }
+    
+    // Close emoji panel when clicking outside
+    document.addEventListener('click', function(e) {
+      const panel = document.getElementById('emojiPanel');
+      const btn = document.querySelector('.emoji-btn');
+      if (panel.classList.contains('show') &&
+          !panel.contains(e.target) &&
+          !btn.contains(e.target)) {
+        panel.classList.remove('show');
+      }
+    });
+    
+    // Socket events
+    if (socket) {
+      // Initial history
+      socket.on('chat_init', (data) => {
+        const container = document.getElementById('messages');
+        container.innerHTML = '';
+        if (data.history) {
+          data.history.forEach(msg => renderMessage(msg));
+        }
+        updateUserList(data.users);
+      });
+      
+      // New message
+      socket.on('chat_message', (msg) => {
+        renderMessage(msg);
+      });
+      
+      // User joined
+      socket.on('chat_userJoined', (user) => {
+        addSystemMsg(`${user.name} 加入了聊天`);
+      });
+      
+      // User left
+      socket.on('chat_userLeft', (user) => {
+        addSystemMsg(`${user.name} 离开了`);
+      });
+      
+      // Users update
+      socket.on('chat_users', (list) => {
+        updateUserList(list);
+      });
+      
+      // Typing
+      socket.on('chat_typing', (data) => {
+        showTyping(data.name);
+      });
+      
+      socket.on('chat_typingEnd', () => {
+        hideTyping();
+      });
+      
+      // Config update
+      socket.on('chat_config', (cfg) => {
+        if (cfg.provider) document.getElementById('aiProvider').value = cfg.provider;
+        if (cfg.autoSpeak !== undefined) document.getElementById('autoSpeak').value = cfg.autoSpeak ? 'on' : 'off';
+        if (cfg.autoInterval) document.getElementById('autoInterval').value = cfg.autoInterval;
+      });
+      
+      // Message read receipt
+      socket.on('chat_messageRead', (data) => {
+        updateMessageRead(data.msgId, true);
+      });
+      
+      // All messages read by partner
+      socket.on('chat_allRead', () => {
+        document.querySelectorAll('.message.my .read-receipt').forEach(el => {
+          el.className = 'read-receipt read';
+          el.textContent = '✓✓';
+        });
+      });
+      
+      // Connection status
+      socket.on('connect', () => {
+        console.log('Connected to chat');
+      });
+      
+      socket.on('disconnect', () => {
+        addSystemMsg('连接已断开');
+      });
+    }
+    
+    // Mark as read when scrolling to see messages
+    const messagesEl = document.getElementById('messages');
+    let readDebounce;
+    messagesEl.addEventListener('scroll', () => {
+      clearTimeout(readDebounce);
+      readDebounce = setTimeout(() => {
+        if (isLoggedIn) {
+          markAsRead();
+        }
+      }, 500);
+    });
+    
+    // Input typing indicator
+    let typingTimeout;
+    document.getElementById('inputMsg').addEventListener('input', function() {
+      if (socket && socket.connected) {
+        socket.emit('chat_typing');
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+          socket.emit('chat_typingEnd');
+        }, 1000);
+      }
+    });
+  </script>
+</body>
+</html>
