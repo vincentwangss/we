@@ -197,8 +197,8 @@ loadChatHistory();
 
 // Hardcoded accounts for couple chat
 const ACCOUNTS = {
-  husband: { password: process.env.HUSBAND_PWD || 'wss520', name: 'wss', avatar: '🧑' },
-  wife:    { password: process.env.WIFE_PWD || 'syq520', name: 'syq', avatar: '👩' }
+  husband: { password: process.env.HUSBAND_PWD || 'lovesyq', name: 'wss', avatar: '🧑' },
+  wife:    { password: process.env.WIFE_PWD || 'lovewss', name: 'syq', avatar: '👩' }
 };
 
 // Multer configuration for file uploads
