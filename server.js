@@ -1328,16 +1328,17 @@ app.post('/api/message/logout', (req, res) => {
 // Message history (paginated)
 app.get('/api/message/history', requireAuth, async (req, res) => {
   const before = req.query.before || null;
-  const limit = parseInt(req.query.limit) || 30;
+  const limit = parseInt(req.query.limit) || 200; // 首次加载 200 条
   const userId = req.session.userId;
 
   let messages;
   if (before) {
+    // 加载更多时也包含用户自己发送的消息
     messages = await sql.all(
-      `SELECT * FROM messages WHERE receiver_id = $1 AND created_at < $2 ORDER BY created_at DESC LIMIT $3`,
+      `SELECT * FROM messages WHERE (sender_id = $1 OR receiver_id = $1 OR receiver_id = 'both') AND created_at < $2 ORDER BY created_at DESC LIMIT $3`,
       [userId, before, limit]
     );
-} else {
+  } else {
     messages = await sql.all(
       `SELECT * FROM messages WHERE sender_id = $1 OR receiver_id = $1 OR receiver_id = 'both' ORDER BY created_at ASC LIMIT $2`,
       [userId, limit]
