@@ -50,8 +50,8 @@ if (process.env.DATABASE_URL) {
   db = new Pool({
     connectionString: connectionString,
     ssl: { rejectUnauthorized: false },
-    // 连接超时设置
-    connectionTimeoutMillis: 5000,
+    // 连接超时设置 (增加到 10 秒)
+    connectionTimeoutMillis: 10000,
     // 最大重试次数
     max: 1
   });
@@ -59,8 +59,8 @@ if (process.env.DATABASE_URL) {
   // 监听连接错误，自动回退到 SQLite
   db.on('error', (err) => {
     console.log('[DB] PostgreSQL connection error:', err.code || err.message);
-    if (err.code === 'ENETUNREACH' || err.code === 'ECONNREFUSED') {
-      console.log('[DB] Network unreachable, falling back to SQLite...');
+    if (err.code === 'ENETUNREACH' || err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND' || err.code === 'ETIMEDOUT') {
+      console.log('[DB] Network unreachable/DNS failed, falling back to SQLite...');
       initSQLite();
     }
   });
@@ -75,7 +75,7 @@ if (process.env.DATABASE_URL) {
     console.log('[DB] PostgreSQL connection successful');
   }).catch((err) => {
     console.log('[DB] PostgreSQL connection failed:', err.code || err.message);
-    if (err.code === 'ENETUNREACH' || err.code === 'ECONNREFUSED') {
+    if (err.code === 'ENETUNREACH' || err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND' || err.code === 'ETIMEDOUT') {
       console.log('[DB] Falling back to SQLite...');
       initSQLite();
     }
