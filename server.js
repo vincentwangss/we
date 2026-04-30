@@ -1429,40 +1429,45 @@ messageIO.on('connection', async (socket) => {
   const userName = ACCOUNTS[userId]?.name || userId;
   console.log('[Socket] User connected:', userId);
 
+  // 检查用户是否之前已在线（用于判断是首次登录还是重连）
+  const wasOnline = messageOnlineUsers.has(userId);
+  
   // Track online status
   messageOnlineUsers.set(userId, { socketId: socket.id, lastSeen: Date.now() });
   messageIO.emit('presence', { userId, status: 'online' });
 
-  // 发送登录系统消息给双方
-  const now = new Date();
-  const loginTime = now.toLocaleString('zh-CN', { 
-    year: 'numeric', 
-    month: '2-digit', 
-    day: '2-digit',
-    hour: '2-digit', 
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  });
-  const loginSystemMsg = {
-    id: uuidv4(),
-    type: 'system',
-    content: `${userName} 于 ${loginTime} 登录`,
-    created_at: now.toISOString()
-  };
-  
-  console.log('[Socket] Sending system message:', loginSystemMsg);
-  
-  // 发送给双方
-  console.log('[Socket] Broadcasting system message to all clients');
-  messageIO.emit('chat:system', loginSystemMsg);
+  // 只有首次登录才发送登录系统消息（重连不发送）
+  if (!wasOnline) {
+    const now = new Date();
+    const loginTime = now.toLocaleString('zh-CN', { 
+      year: 'numeric', 
+      month: '2-digit', 
+      day: '2-digit',
+      hour: '2-digit', 
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    const loginSystemMsg = {
+      id: uuidv4(),
+      type: 'system',
+      content: `${userName} 于 ${loginTime} 登录`,
+      created_at: now.toISOString()
+    };
+    
+    console.log('[Socket] Sending system message:', loginSystemMsg);
+    
+    // 发送给双方
+    console.log('[Socket] Broadcasting system message to all clients');
+    messageIO.emit('chat:system', loginSystemMsg);
 
-  // 保存系统消息到数据库
-  await sql.run(
-    `INSERT INTO messages (id, sender_id, receiver_id, type, content, duration, status, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [loginSystemMsg.id, 'system', 'both', 'system', loginSystemMsg.content, 0, 'delivered', loginSystemMsg.created_at]
-  );
+    // 保存系统消息到数据库
+    await sql.run(
+      `INSERT INTO messages (id, sender_id, receiver_id, type, content, duration, status, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [loginSystemMsg.id, 'system', 'both', 'system', loginSystemMsg.content, 0, 'delivered', loginSystemMsg.created_at]
+    );
+  }
 
   // ---- Chat message ----
   socket.on('chat:message', async (data) => {
