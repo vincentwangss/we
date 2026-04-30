@@ -2,7 +2,7 @@ services:
   - type: web
     name: digital-couple
     env: node
-    buildCommand: npm install
+    buildCommand: npm install --registry=https://registry.npmmirror.com/
     startCommand: npm start
     plan: free
     envVars:
@@ -10,16 +10,15 @@ services:
         value: production
       - key: PORT
         value: 10000
-      # AI API Keys (选择其中一个)
+      # AI API Keys
       - key: DEEPSEEK_API_KEY
         sync: false
-      # - key: OPENAI_API_KEY
-      #   sync: false
-      # - key: MOONSHOT_API_KEY
-      #   sync: false
-      # Supabase PostgreSQL Database
+      # Supabase PostgreSQL Database (连接池)
       - key: DATABASE_URL
         sync: false
+      # Supabase Project URL
+      - key: SUPABASE_URL
+        value: https://yejnhevfcumszhybpsqk.supabase.co
       # Session Secret
       - key: SESSION_SECRET
         generateValue: true
