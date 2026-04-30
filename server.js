@@ -17,8 +17,35 @@ let db;
 let dbWaitReady = null;
 if (process.env.DATABASE_URL) {
   const { Pool } = require('pg');
+  
+  // 解析 DATABASE_URL 并转换为 IPv4 兼容格式
+  let connectionString = process.env.DATABASE_URL;
+  try {
+    const url = new URL(connectionString);
+    const hostname = url.hostname;
+    
+    // Supabase pooler 地址格式: postgres.[ref].aws-...pooler.supabase.com:6543
+    // 转换为直接连接格式: db.[ref].supabase.co:5432
+    if (hostname.includes('pooler.supabase.com')) {
+      // 提取 project ref
+      const match = hostname.match(/^postgres\.([^.]+)\./);
+      if (match) {
+        const projectRef = match[1];
+        // 构建直接连接 URL
+        const directUrl = new URL(connectionString);
+        directUrl.hostname = `db.${projectRef}.supabase.co`;
+        directUrl.port = '5432';
+        directUrl.username = 'postgres';
+        connectionString = directUrl.toString();
+        console.log('[DB] Converted to direct connection format');
+      }
+    }
+  } catch (e) {
+    console.log('[DB] URL parsing failed, using original connection string');
+  }
+  
   db = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: connectionString,
     ssl: { rejectUnauthorized: false }
   });
   dbWaitReady = Promise.resolve();
