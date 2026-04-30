@@ -23,11 +23,12 @@ if (process.env.DATABASE_URL) {
   });
   dbWaitReady = Promise.resolve();
   console.log('[DB] Using PostgreSQL (Supabase)');
+  console.log('[DB] DATABASE_URL:', process.env.DATABASE_URL ? 'SET' : 'NOT SET');
 } else {
   const { initDB, waitReady } = require('./db-sqlite');
   db = initDB(path.join(__dirname, 'data', 'chat.db'));
   dbWaitReady = waitReady();
-  console.log('[DB] Using SQLite via sql.js (pure JS)');
+  console.log('[DB] Using SQLite via sql.js (pure JS) - DATA WILL NOT PERSIST!');
 }
 
 // Unified database query helper
@@ -1520,12 +1521,18 @@ messageIO.on('connection', async (socket) => {
       };
 
       // Save to DB
-      await sql.run(
-        `INSERT INTO messages (id, sender_id, receiver_id, type, content, duration, status, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [message.id, message.sender_id, message.receiver_id, message.type,
-         message.content, message.duration, message.status, message.created_at]
-      );
+      console.log('[Socket] Saving message to DB:', message);
+      try {
+        await sql.run(
+          `INSERT INTO messages (id, sender_id, receiver_id, type, content, duration, status, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [message.id, message.sender_id, message.receiver_id, message.type,
+           message.content, message.duration, message.status, message.created_at]
+        );
+        console.log('[Socket] Message saved successfully');
+      } catch (err) {
+        console.error('[Socket] Failed to save message:', err);
+      }
 
       // Send back to sender (confirmation)
       socket.emit('chat:message:sent', message);
