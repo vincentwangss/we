@@ -1,9 +1,9 @@
 // Service Worker for push notifications & offline support
-const CACHE_NAME = 'couple-chat-v1';
+const CACHE_NAME = 'couple-chat-v2';
 const STATIC_ASSETS = [
   '/',
-  '/message',
   '/chat',
+  '/digital',
   '/message.css',
   '/message.js'
 ];

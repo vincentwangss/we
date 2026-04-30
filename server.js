@@ -1250,10 +1250,10 @@ app.get('/', (req, res) => {
   res.send(content);
 });
 
-// 聊天页面 - chat.html（独立聊天）
+// 真人私密聊天页面 - message.html（wss/syq 双账号）
 app.get('/chat', (req, res) => {
-  const chatPath = path.join(__dirname, 'chat.html');
-  let content = fs.readFileSync(chatPath, 'utf-8');
+  const messagePath = path.join(__dirname, 'message.html');
+  let content = fs.readFileSync(messagePath, 'utf-8');
   
   const version = Date.now();
   content = content.replace(/<script>/g, `<script>\nconsole.log('Chat Version: ${version}');`);

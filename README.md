@@ -32,13 +32,13 @@
 
 ## 使用方式
 
-### AI 数字人对话 (`/chat`)
+### AI 数字人对话 (`/digital`)
 1. 打开网页后输入 API Key（支持 DeepSeek / OpenAI / Moonshot）
 2. 选择参与模式：旁观 / 以老公身份 / 以 syq. 身份
 3. 开启语音播报（需本地启动 GPT-SoVITS API）
 4. 开启自动对话，或手动输入话题
 
-### 私密聊天 (`/message`)
+### 私密聊天 (`/chat`)
 1. 选择登录账号（wss 或 syq.）
 2. 输入密码登录
 3. 开始聊天
@@ -107,8 +107,8 @@ ngrok.exe http 9880
 | 路径 | 页面 |
 |------|------|
 | `/` | 情感主页 |
-| `/chat` | AI 数字人对话 |
-| `/message` | 私密聊天 |
+| `/digital` | AI 数字人对话 |
+| `/chat` | 私密聊天（双账号） |
 | `/wss-visits` | 访客统计 |
 | `/wss-reply` | 悄悄话回复 |
 
