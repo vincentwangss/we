@@ -59,8 +59,14 @@ if (process.env.DATABASE_URL) {
   // 监听连接错误，自动回退到 SQLite
   db.on('error', (err) => {
     console.log('[DB] PostgreSQL connection error:', err.code || err.message);
-    if (err.code === 'ENETUNREACH' || err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND' || err.code === 'ETIMEDOUT') {
-      console.log('[DB] Network unreachable/DNS failed, falling back to SQLite...');
+    const isConnectionError = 
+      err.code === 'ENETUNREACH' || 
+      err.code === 'ECONNREFUSED' || 
+      err.code === 'ENOTFOUND' || 
+      err.code === 'ETIMEDOUT' ||
+      err.message?.includes('timeout');
+    if (isConnectionError) {
+      console.log('[DB] Network/connection failed, falling back to SQLite...');
       initSQLite();
     }
   });
@@ -75,7 +81,13 @@ if (process.env.DATABASE_URL) {
     console.log('[DB] PostgreSQL connection successful');
   }).catch((err) => {
     console.log('[DB] PostgreSQL connection failed:', err.code || err.message);
-    if (err.code === 'ENETUNREACH' || err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND' || err.code === 'ETIMEDOUT') {
+    const isConnectionError = 
+      err.code === 'ENETUNREACH' || 
+      err.code === 'ECONNREFUSED' || 
+      err.code === 'ENOTFOUND' || 
+      err.code === 'ETIMEDOUT' ||
+      err.message?.includes('timeout');
+    if (isConnectionError) {
       console.log('[DB] Falling back to SQLite...');
       initSQLite();
     }
