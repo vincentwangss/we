@@ -134,9 +134,10 @@ function showError(msg) {
 
 // ==================== CHAT INIT ====================
 function initChat() {
-  partnerId = userId === 'husband' ? 'wife' : 'husband';
-  partnerName = ACCOUNTS_INFO[partnerId].name;
-  partnerAvatar = ACCOUNTS_INFO[partnerId].avatar;
+  // Determine partner based on userId (wss <-> syq)
+  partnerId = userId === 'wss' ? 'syq' : 'wss';
+  partnerName = partnerId === 'wss' ? 'wss' : 'syq';
+  partnerAvatar = partnerId === 'wss' ? '🧑' : '👩';
 
   partnerNameEl.textContent = partnerName;
   partnerAvatarEl.textContent = partnerAvatar;
@@ -339,7 +340,7 @@ function renderMessage(msg, animate = true) {
 
   const avatar = document.createElement('span');
   avatar.className = 'msg-avatar';
-  avatar.textContent = msg.sender_id === userId ? ACCOUNTS_INFO[userId].avatar : partnerAvatar;
+  avatar.textContent = msg.sender_id === userId ? (userId === 'wss' ? '🧑' : '👩') : partnerAvatar;
 
   const bubble = document.createElement('div');
   bubble.className = 'msg-bubble';
