@@ -294,6 +294,9 @@ function requireAuth(req, res, next) {
 // Track online status for message chat
 const messageOnlineUsers = new Map(); // userId -> { socketId, lastSeen }
 
+// Track users who have logged in (to prevent duplicate login messages on refresh/reconnect)
+const loggedInUsers = new Map(); // userId -> firstLoginTime
+
 // ==================== AI GENERATION ====================
 
 // 随机开场话题列表
@@ -1313,6 +1316,11 @@ app.post('/api/message/login', (req, res) => {
 
 // Logout
 app.post('/api/message/logout', (req, res) => {
+  const userId = req.session.userId;
+  // 清除登录记录，下次登录会重新发送登录消息
+  if (userId) {
+    loggedInUsers.delete(userId);
+  }
   req.session.destroy();
   res.json({ success: true });
 });
@@ -1446,12 +1454,15 @@ messageIO.on('connection', async (socket) => {
   const existingSockets = messageOnlineUsers.get(userId) || [];
   const wasOnline = existingSockets.length > 0;
   
+  // 检查用户是否已经发过登录消息（用于防止刷新页面时重复发送）
+  const hasLoggedIn = loggedInUsers.has(userId);
+  
   // 添加新的 socket 连接（支持多标签页/多设备）
   messageOnlineUsers.set(userId, [...existingSockets, { socketId: socket.id, lastSeen: Date.now() }]);
   messageIO.emit('presence', { userId, status: 'online', connections: messageOnlineUsers.get(userId).length });
 
-  // 只有首次登录才发送登录系统消息（多标签页不发送）
-  if (!wasOnline) {
+  // 只有首次登录才发送登录系统消息（多标签页或刷新都不再发送）
+  if (!hasLoggedIn) {
     try {
       const now = new Date();
       const loginTime = now.toLocaleString('zh-CN', { 
@@ -1481,6 +1492,9 @@ messageIO.on('connection', async (socket) => {
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [loginSystemMsg.id, 'system', 'both', 'system', loginSystemMsg.content, 0, 'delivered', loginSystemMsg.created_at]
       );
+      
+      // 标记用户已登录，防止刷新页面时重复发送登录消息
+      loggedInUsers.set(userId, Date.now());
     } catch (e) {
       console.error('[Socket] Failed to send login message:', e);
     }
