@@ -1255,6 +1255,11 @@ app.get('/chat', (req, res) => {
   const messagePath = path.join(__dirname, 'message.html');
   let content = fs.readFileSync(messagePath, 'utf-8');
   
+  // 注入 session 信息（用于判断是否已登录）
+  content = content.replace('__VAPID_PUBLIC_KEY__', vapidKeys.publicKey);
+  content = content.replace('__USER_ID__', req.session.userId || '');
+  content = content.replace('__USER_NAME__', (req.session.userId && ACCOUNTS[req.session.userId]) ? ACCOUNTS[req.session.userId].name : '');
+  
   const version = Date.now();
   content = content.replace(/<script>/g, `<script>\nconsole.log('Chat Version: ${version}');`);
   
