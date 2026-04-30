@@ -15,6 +15,8 @@ require('dotenv').config();
 // otherwise use sql.js (pure JS SQLite, no native compilation)
 let db;
 let dbWaitReady = null;
+let usePostgres = false;
+
 if (process.env.DATABASE_URL) {
   const { Pool } = require('pg');
   
@@ -44,13 +46,49 @@ if (process.env.DATABASE_URL) {
     console.log('[DB] URL parsing failed, using original connection string');
   }
   
+  // 创建连接池并设置连接错误处理
   db = new Pool({
     connectionString: connectionString,
-    ssl: { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: false },
+    // 连接超时设置
+    connectionTimeoutMillis: 5000,
+    // 最大重试次数
+    max: 1
   });
+  
+  // 监听连接错误，自动回退到 SQLite
+  db.on('error', (err) => {
+    console.log('[DB] PostgreSQL connection error:', err.code || err.message);
+    if (err.code === 'ENETUNREACH' || err.code === 'ECONNREFUSED') {
+      console.log('[DB] Network unreachable, falling back to SQLite...');
+      initSQLite();
+    }
+  });
+  
+  usePostgres = true;
   dbWaitReady = Promise.resolve();
   console.log('[DB] Using PostgreSQL (Supabase)');
   console.log('[DB] DATABASE_URL:', process.env.DATABASE_URL ? 'SET' : 'NOT SET');
+  
+  // 测试连接并在失败时回退
+  db.query('SELECT 1').then(() => {
+    console.log('[DB] PostgreSQL connection successful');
+  }).catch((err) => {
+    console.log('[DB] PostgreSQL connection failed:', err.code || err.message);
+    if (err.code === 'ENETUNREACH' || err.code === 'ECONNREFUSED') {
+      console.log('[DB] Falling back to SQLite...');
+      initSQLite();
+    }
+  });
+  
+  // SQLite 初始化函数
+  function initSQLite() {
+    const { initDB, waitReady } = require('./db-sqlite');
+    db = initDB(path.join(__dirname, 'data', 'chat.db'));
+    dbWaitReady = waitReady();
+    usePostgres = false;
+    console.log('[DB] Using SQLite via sql.js');
+  }
 } else {
   const { initDB, waitReady } = require('./db-sqlite');
   db = initDB(path.join(__dirname, 'data', 'chat.db'));
@@ -61,7 +99,7 @@ if (process.env.DATABASE_URL) {
 // Unified database query helper
 const sql = {
   all: async (query, params = []) => {
-    if (process.env.DATABASE_URL) {
+    if (usePostgres) {
       const res = await db.query(query, params);
       return res.rows;
     } else {
@@ -69,7 +107,7 @@ const sql = {
     }
   },
   run: async (query, params = []) => {
-    if (process.env.DATABASE_URL) {
+    if (usePostgres) {
       return db.query(query, params);
     } else {
       return db.prepare(query).run(...params);
@@ -227,7 +265,7 @@ const dbHelper = {
   // Save message to database
   saveChatMessage: async function(message) {
     try {
-      if (process.env.DATABASE_URL) {
+      if (usePostgres) {
         // PostgreSQL
         await sql.run(
           `INSERT INTO chat_messages (id, name, role, content, time, read, created_at)
@@ -1698,33 +1736,38 @@ messageIO.on('connection', async (socket) => {
 
 // Push notification helper
 async function sendPushNotification(receiverId, message) {
-  const subscriptions = await sql.all(
-    `SELECT * FROM push_subscriptions WHERE user_id = $1`,
-    [receiverId]
-  );
+  try {
+    const subscriptions = await sql.all(
+      `SELECT * FROM push_subscriptions WHERE user_id = $1`,
+      [receiverId]
+    );
 
-  const senderName = ACCOUNTS[message.sender_id]?.name || message.sender_id;
-  const payload = JSON.stringify({
-    title: senderName,
-    body: message.type === 'text' ? message.content :
-          message.type === 'image' ? '[图片]' :
-          message.type === 'voice' ? '[语音消息]' : '[消息]',
-    tag: `chat-${message.id}`,
-    data: { url: '/message' }
-  });
+    const senderName = ACCOUNTS[message.sender_id]?.name || message.sender_id;
+    const payload = JSON.stringify({
+      title: senderName,
+      body: message.type === 'text' ? message.content :
+            message.type === 'image' ? '[图片]' :
+            message.type === 'voice' ? '[语音消息]' : '[消息]',
+      tag: `chat-${message.id}`,
+      data: { url: '/message' }
+    });
 
-  for (const sub of subscriptions) {
-    try {
-      await webpush.sendNotification({
-        endpoint: sub.endpoint,
-        keys: { p256dh: sub.p256dh, auth: sub.auth }
-      }, payload);
-    } catch (err) {
-      console.error('[Push] Failed:', err.statusCode);
-      if (err.statusCode === 410) {
-        await sql.run('DELETE FROM push_subscriptions WHERE endpoint = $1', [sub.endpoint]);
+    for (const sub of subscriptions) {
+      try {
+        await webpush.sendNotification({
+          endpoint: sub.endpoint,
+          keys: { p256dh: sub.p256dh, auth: sub.auth }
+        }, payload);
+      } catch (err) {
+        console.error('[Push] Failed:', err.statusCode);
+        if (err.statusCode === 410) {
+          await sql.run('DELETE FROM push_subscriptions WHERE endpoint = $1', [sub.endpoint]);
+        }
       }
     }
+  } catch (e) {
+    // 数据库连接错误时跳过推送通知
+    console.log('[Push] Skipped push notification due to DB error:', e.code || e.message);
   }
 }
 
