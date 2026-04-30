@@ -1,9 +1,12 @@
 const { Pool } = require('pg');
 
 // PostgreSQL connection (for Supabase/production)
+// Supabase requires SSL connection
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  ssl: {
+    rejectUnauthorized: false  // Required for Supabase
+  }
 });
 
 // Initialize database tables
@@ -55,6 +58,7 @@ async function initDatabase() {
       CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);
       CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);
       CREATE INDEX IF NOT EXISTS idx_messages_status ON messages(status);
+      CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages(receiver_id);
       CREATE INDEX IF NOT EXISTS idx_chat_messages_created ON chat_messages(created_at);
     `);
     

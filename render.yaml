@@ -4,8 +4,30 @@ services:
     env: node
     buildCommand: npm install
     startCommand: npm start
+    plan: free
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
+      # AI API Keys (选择其中一个)
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      # - key: OPENAI_API_KEY
+      #   sync: false
+      # - key: MOONSHOT_API_KEY
+      #   sync: false
+      # Supabase PostgreSQL Database
+      - key: DATABASE_URL
+        sync: false
+      # Session Secret
+      - key: SESSION_SECRET
+        generateValue: true
+      # Chat Passwords
+      - key: HUSBAND_PWD
+        value: lovesyq
+      - key: WIFE_PWD
+        value: lovewss
+      # GPT-SoVITS (可选，本地语音合成)
+      - key: GPT_SOVITS_API
+        value: http://127.0.0.1:9880
