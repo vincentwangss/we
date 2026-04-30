@@ -1372,10 +1372,7 @@ app.post('/api/message/read', requireAuth, async (req, res) => {
     );
 
     senders.forEach(({ sender_id }) => {
-      const sender = messageOnlineUsers.get(sender_id);
-      if (sender) {
-        messageIO.to(sender.socketId).emit('chat:message:read', { messageIds, readAt: now });
-      }
+      emitToUser(sender_id, 'chat:message:read', { messageIds, readAt: now });
     });
   } else {
     // Mark all unread as read
@@ -1415,6 +1412,14 @@ app.post('/api/message/push/unsubscribe', requireAuth, async (req, res) => {
 // ==================== MESSAGE CHAT SOCKET.IO ====================
 const messageIO = io.of('/message');
 
+// 辅助函数：向用户的所有连接发送消息（支持多标签页）
+function emitToUser(userId, event, data) {
+  const sockets = messageOnlineUsers.get(userId) || [];
+  sockets.forEach(({ socketId }) => {
+    messageIO.to(socketId).emit(event, data);
+  });
+}
+
 messageIO.use((socket, next) => {
   const userId = socket.handshake.auth.userId;
   if (!userId || !ACCOUNTS[userId]) {
@@ -1427,16 +1432,17 @@ messageIO.use((socket, next) => {
 messageIO.on('connection', async (socket) => {
   const userId = socket.userId;
   const userName = ACCOUNTS[userId]?.name || userId;
-  console.log('[Socket] User connected:', userId);
+  console.log('[Socket] User connected:', userId, '| Total connections:', (messageOnlineUsers.get(userId)?.length || 0) + 1);
 
   // 检查用户是否之前已在线（用于判断是首次登录还是重连）
-  const wasOnline = messageOnlineUsers.has(userId);
+  const existingSockets = messageOnlineUsers.get(userId) || [];
+  const wasOnline = existingSockets.length > 0;
   
-  // Track online status
-  messageOnlineUsers.set(userId, { socketId: socket.id, lastSeen: Date.now() });
-  messageIO.emit('presence', { userId, status: 'online' });
+  // 添加新的 socket 连接（支持多标签页/多设备）
+  messageOnlineUsers.set(userId, [...existingSockets, { socketId: socket.id, lastSeen: Date.now() }]);
+  messageIO.emit('presence', { userId, status: 'online', connections: messageOnlineUsers.get(userId).length });
 
-  // 只有首次登录才发送登录系统消息（重连不发送）
+  // 只有首次登录才发送登录系统消息（多标签页不发送）
   if (!wasOnline) {
     const now = new Date();
     const loginTime = now.toLocaleString('zh-CN', { 
@@ -1458,7 +1464,6 @@ messageIO.on('connection', async (socket) => {
     console.log('[Socket] Sending system message:', loginSystemMsg);
     
     // 发送给双方
-    console.log('[Socket] Broadcasting system message to all clients');
     messageIO.emit('chat:system', loginSystemMsg);
 
     // 保存系统消息到数据库
@@ -1497,12 +1502,12 @@ messageIO.on('connection', async (socket) => {
     // Send back to sender (confirmation)
     socket.emit('chat:message:sent', message);
 
-    // Deliver to receiver if online
-    const receiver = messageOnlineUsers.get(receiverId);
-    if (receiver) {
+    // Deliver to receiver if online (supports multiple tabs)
+    const sockets = messageOnlineUsers.get(receiverId);
+    if (sockets && sockets.length > 0) {
       message.status = 'delivered';
       await sql.run(`UPDATE messages SET status = 'delivered' WHERE id = $1`, [message.id]);
-      messageIO.to(receiver.socketId).emit('chat:message:new', message);
+      emitToUser(receiverId, 'chat:message:new', message);
       socket.emit('chat:message:status', { id: message.id, status: 'delivered' });
     } else {
       // Send push notification
@@ -1528,20 +1533,14 @@ messageIO.on('connection', async (socket) => {
     );
 
     senders.forEach(({ sender_id }) => {
-      const sender = messageOnlineUsers.get(sender_id);
-      if (sender) {
-        messageIO.to(sender.socketId).emit('chat:message:read', { messageIds, readAt: now });
-      }
+      emitToUser(sender_id, 'chat:message:read', { messageIds, readAt: now });
     });
   });
 
   // ---- Typing indicator ----
   socket.on('chat:typing', () => {
     const receiverId = userId === 'wss' ? 'syq' : 'wss';
-    const receiver = messageOnlineUsers.get(receiverId);
-    if (receiver) {
-      messageIO.to(receiver.socketId).emit('chat:typing', { userId });
-    }
+    emitToUser(receiverId, 'chat:typing', { userId });
   });
 
   // ---- Recall message ----
@@ -1570,12 +1569,9 @@ messageIO.on('connection', async (socket) => {
     // Notify sender
     socket.emit('chat:message:recalled', { messageId });
     
-    // Notify receiver if online
+    // Notify receiver if online (supports multiple tabs)
     const receiverId = message.receiver_id;
-    const receiver = messageOnlineUsers.get(receiverId);
-    if (receiver) {
-      messageIO.to(receiver.socketId).emit('chat:message:recalled', { messageId });
-    }
+    emitToUser(receiverId, 'chat:message:recalled', { messageId });
   });
 
   // ---- Delete message ----
@@ -1595,19 +1591,27 @@ messageIO.on('connection', async (socket) => {
     // Notify sender
     socket.emit('chat:message:deleted', { messageId });
     
-    // Notify receiver if online and different from sender
+    // Notify receiver if online and different from sender (supports multiple tabs)
     if (message.sender_id !== userId) {
-      const receiver = messageOnlineUsers.get(message.sender_id);
-      if (receiver) {
-        messageIO.to(receiver.socketId).emit('chat:message:deleted', { messageId });
-      }
+      emitToUser(message.sender_id, 'chat:message:deleted', { messageId });
     }
   });
 
   // ---- Disconnect ----
   socket.on('disconnect', () => {
-    messageOnlineUsers.delete(userId);
-    messageIO.emit('presence', { userId, status: 'offline', lastSeen: Date.now() });
+    // 只移除断开的 socket，保留其他标签页的连接
+    const sockets = messageOnlineUsers.get(userId) || [];
+    const remaining = sockets.filter(s => s.socketId !== socket.id);
+    
+    if (remaining.length > 0) {
+      messageOnlineUsers.set(userId, remaining);
+      messageIO.emit('presence', { userId, status: 'online', connections: remaining.length });
+    } else {
+      messageOnlineUsers.delete(userId);
+      messageIO.emit('presence', { userId, status: 'offline', lastSeen: Date.now() });
+    }
+    
+    console.log('[Socket] User disconnected:', userId, '| Remaining connections:', remaining.length);
   });
 });
 
