@@ -159,6 +159,10 @@ function connectSocket() {
     console.log('[Chat] Connected');
   });
 
+  socket.on('connect_error', (err) => {
+    console.error('[Chat] Connection error:', err.message);
+  });
+
   socket.on('chat:message:sent', (msg) => {
     // Update the optimistic message with server data
     const el = document.querySelector(`[data-msg-id="${msg.id}"]`);
@@ -187,6 +191,36 @@ function connectSocket() {
     data.messageIds.forEach(id => {
       updateMessageStatus(id, 'read');
     });
+  });
+
+  // Handle system message (login notification)
+  socket.on('chat:system', (msg) => {
+    console.log('[Chat] Received system message:', msg);
+    renderSystemMessage(msg);
+    scrollToBottom();
+  });
+
+  // Handle recalled message
+  socket.on('chat:message:recalled', (data) => {
+    const msgEl = document.querySelector(`[data-msg-id="${data.messageId}"]`);
+    if (msgEl) {
+      msgEl.querySelector('.msg-content')?.remove();
+      const bubble = msgEl.querySelector('.msg-bubble');
+      if (bubble) {
+        bubble.classList.add('recalled');
+        bubble.innerHTML = '<span class="recalled-text">该消息已撤回</span>';
+      }
+    }
+    showToast('消息已撤回');
+  });
+
+  // Handle deleted message
+  socket.on('chat:message:deleted', (data) => {
+    const msgEl = document.querySelector(`[data-msg-id="${data.messageId}"]`);
+    if (msgEl) {
+      msgEl.remove();
+    }
+    showToast('消息已删除');
   });
 
   socket.on('chat:typing', () => {
@@ -232,8 +266,9 @@ async function loadHistory(before) {
 
     const res = await fetch(url);
     const data = await res.json();
+    const historyMessages = data.messages || [];
 
-    if (data.length === 0) {
+    if (historyMessages.length === 0) {
       loadingMore.style.display = 'none';
       isLoadingHistory = false;
       return;
@@ -242,7 +277,7 @@ async function loadHistory(before) {
     const oldScrollHeight = messageList.scrollHeight;
 
     // Prepend messages (oldest first from API)
-    data.forEach(msg => {
+    historyMessages.forEach(msg => {
       if (!messages.find(m => m.id === msg.id)) {
         messages.push(msg);
       }
@@ -292,6 +327,12 @@ function renderAllMessages() {
 }
 
 function renderMessage(msg, animate = true) {
+  // Handle system messages
+  if (msg.type === 'system') {
+    renderSystemMessage(msg);
+    return;
+  }
+
   const row = document.createElement('div');
   row.className = `msg-row ${msg.sender_id === userId ? 'me' : 'partner'}`;
   row.dataset.msgId = msg.id;
@@ -312,14 +353,10 @@ function renderMessage(msg, animate = true) {
     renderTextBubble(bubble, msg);
   }
 
-  // Meta (time + status)
+  // Meta (time only - no status icons)
   const meta = document.createElement('div');
   meta.className = 'bubble-meta';
   meta.innerHTML = `<span>${formatTime(msg.created_at)}</span>`;
-
-  if (msg.sender_id === userId) {
-    meta.innerHTML += `<span class="msg-status ${msg.status}">${getStatusIcon(msg.status)}</span>`;
-  }
 
   bubble.appendChild(meta);
   row.appendChild(avatar);
@@ -381,6 +418,15 @@ function insertDateSeparator(dateStr) {
   messageList.appendChild(sep);
 }
 
+function renderSystemMessage(msg) {
+  console.log('[Chat] renderSystemMessage called:', msg);
+  const row = document.createElement('div');
+  row.className = 'system-message';
+  row.innerHTML = `<span>${msg.content}</span>`;
+  messageList.appendChild(row);
+  console.log('[Chat] System message added to DOM');
+}
+
 function updateMessageStatus(msgId, status) {
   const row = document.querySelector(`[data-msg-id="${msgId}"]`);
   if (!row) return;
@@ -395,12 +441,8 @@ function updateMessageStatus(msgId, status) {
 }
 
 function getStatusIcon(status) {
-  switch (status) {
-    case 'sent': return '✓';
-    case 'delivered': return '✓✓';
-    case 'read': return '✓✓';
-    default: return '';
-  }
+  // 已读打钩功能已移除，始终返回空
+  return '';
 }
 
 // ==================== SEND MESSAGES ====================
@@ -846,6 +888,14 @@ function showContextMenu(e, msg) {
 
   if (!contextMenu) return;
 
+  // Show/hide recall and delete buttons based on message ownership
+  const recallBtn = document.getElementById('recallBtn');
+  const deleteBtn = document.getElementById('deleteBtn');
+  const isMyMessage = msg.sender === userId;
+  
+  if (recallBtn) recallBtn.style.display = isMyMessage ? 'flex' : 'none';
+  if (deleteBtn) deleteBtn.style.display = 'flex'; // Both can delete
+
   contextMenu.classList.add('active');
   contextMenu.style.top = `${e.clientY}px`;
   contextMenu.style.left = `${e.clientX}px`;
@@ -888,6 +938,34 @@ function forwardMessage() {
       }).catch(() => {});
     }
   }
+  hideContextMenu();
+}
+
+// Recall message (sender can recall within 2 minutes)
+function recallMessage() {
+  if (!contextMenuTarget) return;
+  
+  const msg = contextMenuTarget;
+  const now = Date.now();
+  const createdAt = new Date(msg.created_at).getTime();
+  const twoMinutes = 2 * 60 * 1000;
+  
+  if (now - createdAt > twoMinutes) {
+    showToast('超过2分钟，无法撤回');
+    hideContextMenu();
+    return;
+  }
+  
+  socket.emit('chat:message:recall', { messageId: msg.id });
+  hideContextMenu();
+}
+
+// Delete message (for both sender and receiver)
+function deleteMessage() {
+  if (!contextMenuTarget) return;
+  
+  const msg = contextMenuTarget;
+  socket.emit('chat:message:delete', { messageId: msg.id });
   hideContextMenu();
 }
 

@@ -818,7 +818,7 @@
       const password = document.getElementById('userPassword').value;
       const roleEl = document.querySelector('.role-option.selected');
       const role = roleEl ? roleEl.dataset.role : 'husband';
-      const name = role === 'husband' ? 'husband' : 'wife';
+      const userId = role === 'husband' ? 'wss' : 'syq';
       
       myRole = role;
       myName = role === 'husband' ? 'wss' : 'syq';
@@ -828,7 +828,7 @@
         const res = await fetch('/api/message/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: name, password: password })
+          body: JSON.stringify({ userId: userId, password: password })
         });
         const data = await res.json();
         
@@ -897,19 +897,7 @@
       const isMy = msg.name === myName && msg.role === myRole;
       const time = new Date(msg.time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
       
-      // 已读状态：只有自己发的消息才显示
-      let readReceipt = '';
-      if (isMy && isLoggedIn) {
-        const otherOnline = users.some(u => u.role !== myRole && u.role !== 'observer');
-        if (msg.read) {
-          readReceipt = '<span class="read-receipt read">✓✓</span>';
-        } else if (otherOnline) {
-          readReceipt = '<span class="read-receipt sent">✓</span>';
-        } else {
-          readReceipt = '<span class="read-receipt sent">✓</span>';
-        }
-      }
-      
+      // 已读状态已移除
       const div = document.createElement('div');
       div.className = `message ${isMy ? 'my' : ''}`;
       div.setAttribute('data-id', msg.id);
@@ -920,7 +908,6 @@
           <div class="content">${escapeHtml(msg.content)}</div>
           <div class="time-row">
             <div class="time">${time}</div>
-            ${readReceipt}
           </div>
         </div>
       `;
@@ -1102,12 +1089,12 @@
         updateMessageRead(data.msgId, true);
       });
       
-      // All messages read by partner
-      socket.on('chat_allRead', () => {
-        document.querySelectorAll('.message.my .read-receipt').forEach(el => {
-          el.className = 'read-receipt read';
-          el.textContent = '✓✓';
-        });
+      // System message (login notification)
+      socket.on('system', (msg) => {
+        console.log('[Chat] Received system message:', msg);
+        if (msg.content) {
+          addSystemMsg(msg.content);
+        }
       });
       
       // Connection status

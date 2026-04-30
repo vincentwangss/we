@@ -257,6 +257,21 @@ html, body {
   border-radius: 4px;
 }
 
+/* System message */
+.system-message {
+  text-align: center;
+  margin: 12px 0;
+}
+
+.system-message span {
+  background: #f0f0f5;
+  color: #666;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  display: inline-block;
+}
+
 /* Message bubble */
 .msg-row {
   display: flex;
@@ -972,4 +987,15 @@ html, body {
   .emoji-picker {
     padding-bottom: env(safe-area-inset-bottom);
   }
+}
+
+/* ==================== RECALLED MESSAGE ==================== */
+.msg-bubble.recalled {
+  background: #f0f0f0 !important;
+}
+
+.msg-bubble .recalled-text {
+  color: #999;
+  font-size: 13px;
+  font-style: italic;
 }

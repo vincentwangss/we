@@ -11,19 +11,23 @@ const { v4: uuidv4 } = require('uuid');
 const webpush = require('web-push');
 require('dotenv').config();
 
-// Database: use PostgreSQL (Supabase) if DATABASE_URL is set, otherwise SQLite
+// Database: use PostgreSQL (Supabase) if DATABASE_URL is set,
+// otherwise use sql.js (pure JS SQLite, no native compilation)
 let db;
+let dbWaitReady = null;
 if (process.env.DATABASE_URL) {
   const { Pool } = require('pg');
   db = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
   });
+  dbWaitReady = Promise.resolve();
   console.log('[DB] Using PostgreSQL (Supabase)');
 } else {
-  const { initDB } = require('./db');
+  const { initDB, waitReady } = require('./db-sqlite');
   db = initDB(path.join(__dirname, 'data', 'chat.db'));
-  console.log('[DB] Using SQLite (local)');
+  dbWaitReady = waitReady();
+  console.log('[DB] Using SQLite via sql.js (pure JS)');
 }
 
 // Unified database query helper
@@ -240,16 +244,14 @@ let aiConfig = {
 let autoTimer = null;
 let isGenerating = false;
 
-// Initialize: load chat history from DB
-(async () => {
-  await dbHelper.loadChatHistory();
-})();
-
 // Hardcoded accounts for couple chat
 const ACCOUNTS = {
-  husband: { password: process.env.HUSBAND_PWD || 'lovesyq', name: 'wss', avatar: '🧑' },
-  wife:    { password: process.env.WIFE_PWD || 'lovewss', name: 'syq', avatar: '👩' }
+  wss: { password: process.env.HUSBAND_PWD || 'lovesyq', name: 'wss', avatar: '🧑' },
+  syq: { password: process.env.WIFE_PWD || 'lovewss', name: 'syq', avatar: '👩' }
 };
+
+// ==================== START ====================
+// PORT defined at end of file (avoid duplicate declaration)
 
 // Multer configuration for file uploads
 const upload = multer({
@@ -461,7 +463,7 @@ io.on('connection', (socket) => {
   });
 
   // User joins with role
-  socket.on('join', (data) => {
+  socket.on('chat_join', (data) => {
     const user = {
       id: socket.id,
       name: data.name || '匿名用户',
@@ -472,6 +474,19 @@ io.on('connection', (socket) => {
     
     broadcast('userJoined', user);
     broadcast('users', Array.from(connectedUsers.values()));
+    
+    // 发送登录系统消息
+    const now = new Date();
+    const loginTime = now.toLocaleString('zh-CN', { 
+      year: 'numeric', 
+      month: '2-digit', 
+      day: '2-digit',
+      hour: '2-digit', 
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    broadcast('system', { content: `${user.name} 于 ${loginTime} 登录` });
     
     console.log(`User ${user.name} joined as ${user.role}`);
   });
@@ -603,7 +618,7 @@ io.on('connection', (socket) => {
     }
     
     // Save to database
-    saveChatMessage(message);
+    dbHelper.saveChatMessage(message);
     
     io.emit('chat_message', message);
     
@@ -622,7 +637,7 @@ io.on('connection', (socket) => {
           };
           chatHistory.push(aiMsg);
           // Save to database
-          saveChatMessage(aiMsg);
+          dbHelper.saveChatMessage(aiMsg);
           io.emit('chat_message', aiMsg);
         }
       });
@@ -640,7 +655,7 @@ io.on('connection', (socket) => {
           };
           chatHistory.push(aiMsg);
           // Save to database
-          saveChatMessage(aiMsg);
+          dbHelper.saveChatMessage(aiMsg);
           io.emit('chat_message', aiMsg);
         }
       });
@@ -679,7 +694,7 @@ io.on('connection', (socket) => {
       if (msg.role !== user.role && msg.role !== 'observer') {
         msg.read = true;
         // Update in database
-        updateChatMessageRead(msg.id);
+        dbHelper.updateChatMessageRead(msg.id);
       }
     });
   });
@@ -831,15 +846,16 @@ app.post('/api/visit', (req, res) => {
       visits = JSON.parse(fs.readFileSync(VISITS_FILE, 'utf-8'));
     }
 
+    const visitTime = new Date();
+    const month = String(visitTime.getMonth() + 1).padStart(2, '0');
+    const day = String(visitTime.getDate()).padStart(2, '0');
+    const hour = String(visitTime.getHours()).padStart(2, '0');
+    const minute = String(visitTime.getMinutes()).padStart(2, '0');
+    const second = String(visitTime.getSeconds()).padStart(2, '0');
+    
     const visit = {
       id: Date.now().toString(),
-      time: new Date().toLocaleString('zh-CN', { 
-        month: '2-digit', 
-        day: '2-digit', 
-        hour: '2-digit', 
-        minute: '2-digit',
-        second: '2-digit'
-      }).replace(/\//g, '月').replace(',', '日 '),
+      time: month + '月' + day + '日 ' + hour + ':' + minute + ':' + second,
       timestamp: Date.now(),
       userAgent: req.headers['user-agent'] ? req.headers['user-agent'].substring(0, 100) : '',
       referer: req.headers['referer'] || ''
@@ -1047,10 +1063,16 @@ app.post('/api/whisper-replies', (req, res) => {
       replies = JSON.parse(fs.readFileSync(WHISPER_REPLIES_FILE, 'utf-8'));
     }
 
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hour = String(now.getHours()).padStart(2, '0');
+    const minute = String(now.getMinutes()).padStart(2, '0');
+    
     const reply = {
       id: Date.now().toString(),
       text: text,
-      time: new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(/\//g, '月').replace(',', '日 ')
+      time: month + '月' + day + '日 ' + hour + ':' + minute
     };
 
     replies.unshift(reply);
@@ -1294,28 +1316,30 @@ app.post('/api/message/logout', (req, res) => {
 app.get('/api/message/history', requireAuth, async (req, res) => {
   const before = req.query.before || null;
   const limit = parseInt(req.query.limit) || 30;
+  const userId = req.session.userId;
 
   let messages;
   if (before) {
     messages = await sql.all(
-      `SELECT * FROM chat_messages WHERE created_at < $1 ORDER BY created_at DESC LIMIT $2`,
-      [before, limit]
+      `SELECT * FROM messages WHERE receiver_id = $1 AND created_at < $2 ORDER BY created_at DESC LIMIT $3`,
+      [userId, before, limit]
     );
   } else {
     messages = await sql.all(
-      `SELECT * FROM chat_messages ORDER BY created_at ASC LIMIT $1`,
-      [limit]
+      `SELECT * FROM messages WHERE receiver_id = $1 OR receiver_id = 'both' ORDER BY created_at ASC LIMIT $2`,
+      [userId, limit]
     );
   }
   
   // Transform to API response format
   const transformed = messages.map(m => ({
     id: m.id,
-    sender: m.role,
-    senderName: m.name,
+    sender_id: m.sender_id,
+    receiver_id: m.receiver_id,
+    type: m.type,
     content: m.content,
-    time: m.time,
-    status: m.read ? 'read' : 'delivered',
+    duration: m.duration,
+    status: m.status,
     created_at: m.created_at
   }));
   
@@ -1397,23 +1421,48 @@ messageIO.use((socket, next) => {
 
 messageIO.on('connection', async (socket) => {
   const userId = socket.userId;
-
+  const userName = ACCOUNTS[userId]?.name || userId;
+  console.log('[Socket] User connected:', userId);
 
   // Track online status
   messageOnlineUsers.set(userId, { socketId: socket.id, lastSeen: Date.now() });
   messageIO.emit('presence', { userId, status: 'online' });
 
-  // Send unread count
-  const unreadResult = await sql.all(
-    `SELECT COUNT(*) as count FROM messages WHERE receiver_id = $1 AND status != 'read'`,
-    [userId]
+  // 发送登录系统消息给双方
+  const now = new Date();
+  const loginTime = now.toLocaleString('zh-CN', { 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit',
+    hour: '2-digit', 
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  const loginSystemMsg = {
+    id: uuidv4(),
+    type: 'system',
+    content: `${userName} 于 ${loginTime} 登录`,
+    created_at: now.toISOString()
+  };
+  
+  console.log('[Socket] Sending system message:', loginSystemMsg);
+  
+  // 发送给双方
+  console.log('[Socket] Broadcasting system message to all clients');
+  messageIO.emit('chat:system', loginSystemMsg);
+
+  // 保存系统消息到数据库
+  await sql.run(
+    `INSERT INTO messages (id, sender_id, receiver_id, type, content, duration, status, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [loginSystemMsg.id, 'system', 'both', 'system', loginSystemMsg.content, 0, 'delivered', loginSystemMsg.created_at]
   );
-  socket.emit('unread', { count: unreadResult[0]?.count || 0 });
 
   // ---- Chat message ----
   socket.on('chat:message', async (data) => {
     const { type, content, duration } = data;
-    const receiverId = userId === 'husband' ? 'wife' : 'husband';
+    const receiverId = userId === 'wss' ? 'syq' : 'wss';
     const messageId = uuidv4();
 
     const message = {
@@ -1478,10 +1527,70 @@ messageIO.on('connection', async (socket) => {
 
   // ---- Typing indicator ----
   socket.on('chat:typing', () => {
-    const receiverId = userId === 'husband' ? 'wife' : 'husband';
+    const receiverId = userId === 'wss' ? 'syq' : 'wss';
     const receiver = messageOnlineUsers.get(receiverId);
     if (receiver) {
       messageIO.to(receiver.socketId).emit('chat:typing', { userId });
+    }
+  });
+
+  // ---- Recall message ----
+  socket.on('chat:message:recall', async (data) => {
+    const { messageId } = data;
+    
+    // Verify the message belongs to this user and is within 2 minutes
+    const messages = await sql.all(`SELECT * FROM messages WHERE id = $1`, [messageId]);
+    if (messages.length === 0) return;
+    
+    const message = messages[0];
+    if (message.sender_id !== userId) return;
+    
+    const createdAt = new Date(message.created_at).getTime();
+    const now = Date.now();
+    const twoMinutes = 2 * 60 * 1000;
+    
+    if (now - createdAt > twoMinutes) {
+      socket.emit('chat:error', { message: '超过2分钟，无法撤回' });
+      return;
+    }
+    
+    // Mark as recalled
+    await sql.run(`UPDATE messages SET content = '[该消息已撤回]', type = 'recalled' WHERE id = $1`, [messageId]);
+    
+    // Notify sender
+    socket.emit('chat:message:recalled', { messageId });
+    
+    // Notify receiver if online
+    const receiverId = message.receiver_id;
+    const receiver = messageOnlineUsers.get(receiverId);
+    if (receiver) {
+      messageIO.to(receiver.socketId).emit('chat:message:recalled', { messageId });
+    }
+  });
+
+  // ---- Delete message ----
+  socket.on('chat:message:delete', async (data) => {
+    const { messageId } = data;
+    
+    // Verify the message belongs to this user or is received by this user
+    const messages = await sql.all(`SELECT * FROM messages WHERE id = $1`, [messageId]);
+    if (messages.length === 0) return;
+    
+    const message = messages[0];
+    if (message.sender_id !== userId && message.receiver_id !== userId) return;
+    
+    // Delete the message
+    await sql.run(`DELETE FROM messages WHERE id = $1`, [messageId]);
+    
+    // Notify sender
+    socket.emit('chat:message:deleted', { messageId });
+    
+    // Notify receiver if online and different from sender
+    if (message.sender_id !== userId) {
+      const receiver = messageOnlineUsers.get(message.sender_id);
+      if (receiver) {
+        messageIO.to(receiver.socketId).emit('chat:message:deleted', { messageId });
+      }
     }
   });
 
@@ -1531,7 +1640,19 @@ app.get('*', (req, res) => {
 
 // ==================== START ====================
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`🚀 Digital Couple Server running on port ${PORT}`);
-  console.log(`📱 Open http://localhost:${PORT} to access`);
+
+async function start() {
+  // Wait for database to be ready (sql.js is async)
+  await dbWaitReady;
+  // Load chat history from DB
+  await dbHelper.loadChatHistory();
+  server.listen(PORT, () => {
+    console.log(`🚀 Digital Couple Server running on port ${PORT}`);
+    console.log(`📱 Open http://localhost:${PORT} to access`);
+  });
+}
+
+start().catch(e => {
+  console.error('Failed to start server:', e);
+  process.exit(1);
 });

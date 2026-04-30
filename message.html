@@ -14,13 +14,13 @@
       <h1>Our Chat</h1>
       <p class="login-subtitle">属于我们的聊天空间</p>
       <div class="account-selector">
-        <div class="account-option" data-id="husband">
+        <div class="account-option" data-id="wss">
           <span class="account-avatar">🧑</span>
           <span class="account-name">wss</span>
         </div>
-        <div class="account-option" data-id="wife">
+        <div class="account-option" data-id="syq">
           <span class="account-avatar">👩</span>
-          <span class="account-name">syq.</span>
+          <span class="account-name">syq</span>
         </div>
       </div>
       <div class="pwd-wrapper">
@@ -118,6 +118,12 @@
       </div>
       <div class="context-menu-item" onclick="forwardMessage()">
         <span>🔄</span> 转发
+      </div>
+      <div class="context-menu-item" id="recallBtn" onclick="recallMessage()">
+        <span>↩️</span> 撤回
+      </div>
+      <div class="context-menu-item" id="deleteBtn" onclick="deleteMessage()">
+        <span>🗑️</span> 删除
       </div>
     </div>
   </div>
