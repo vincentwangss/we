@@ -1414,10 +1414,18 @@ const messageIO = io.of('/message');
 
 // 辅助函数：向用户的所有连接发送消息（支持多标签页）
 function emitToUser(userId, event, data) {
-  const sockets = messageOnlineUsers.get(userId) || [];
-  sockets.forEach(({ socketId }) => {
-    messageIO.to(socketId).emit(event, data);
-  });
+  try {
+    const sockets = messageOnlineUsers.get(userId) || [];
+    sockets.forEach(({ socketId }) => {
+      try {
+        messageIO.to(socketId).emit(event, data);
+      } catch (e) {
+        console.error('[emitToUser] Failed to emit to socket:', socketId, e.message);
+      }
+    });
+  } catch (e) {
+    console.error('[emitToUser] Error:', e.message);
+  }
 }
 
 messageIO.use((socket, next) => {
@@ -1444,156 +1452,180 @@ messageIO.on('connection', async (socket) => {
 
   // 只有首次登录才发送登录系统消息（多标签页不发送）
   if (!wasOnline) {
-    const now = new Date();
-    const loginTime = now.toLocaleString('zh-CN', { 
-      year: 'numeric', 
-      month: '2-digit', 
-      day: '2-digit',
-      hour: '2-digit', 
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
-    const loginSystemMsg = {
-      id: uuidv4(),
-      type: 'system',
-      content: `${userName} 于 ${loginTime} 登录`,
-      created_at: now.toISOString()
-    };
-    
-    console.log('[Socket] Sending system message:', loginSystemMsg);
-    
-    // 发送给双方
-    messageIO.emit('chat:system', loginSystemMsg);
+    try {
+      const now = new Date();
+      const loginTime = now.toLocaleString('zh-CN', { 
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit',
+        hour: '2-digit', 
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+      const loginSystemMsg = {
+        id: uuidv4(),
+        type: 'system',
+        content: `${userName} 于 ${loginTime} 登录`,
+        created_at: now.toISOString()
+      };
+      
+      console.log('[Socket] Sending system message:', loginSystemMsg);
+      
+      // 发送给双方
+      messageIO.emit('chat:system', loginSystemMsg);
 
-    // 保存系统消息到数据库
-    await sql.run(
-      `INSERT INTO messages (id, sender_id, receiver_id, type, content, duration, status, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [loginSystemMsg.id, 'system', 'both', 'system', loginSystemMsg.content, 0, 'delivered', loginSystemMsg.created_at]
-    );
+      // 保存系统消息到数据库
+      await sql.run(
+        `INSERT INTO messages (id, sender_id, receiver_id, type, content, duration, status, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [loginSystemMsg.id, 'system', 'both', 'system', loginSystemMsg.content, 0, 'delivered', loginSystemMsg.created_at]
+      );
+    } catch (e) {
+      console.error('[Socket] Failed to send login message:', e);
+    }
   }
 
   // ---- Chat message ----
   socket.on('chat:message', async (data) => {
-    const { type, content, duration } = data;
-    const receiverId = userId === 'wss' ? 'syq' : 'wss';
-    const messageId = uuidv4();
+    try {
+      const { type, content, duration } = data;
+      const receiverId = userId === 'wss' ? 'syq' : 'wss';
+      const messageId = uuidv4();
 
-    const message = {
-      id: messageId,
-      sender_id: userId,
-      receiver_id: receiverId,
-      type: type || 'text',
-      content,
-      duration: duration || 0,
-      status: 'sent',
-      created_at: new Date().toISOString()
-    };
+      const message = {
+        id: messageId,
+        sender_id: userId,
+        receiver_id: receiverId,
+        type: type || 'text',
+        content,
+        duration: duration || 0,
+        status: 'sent',
+        created_at: new Date().toISOString()
+      };
 
-    // Save to DB
-    await sql.run(
-      `INSERT INTO messages (id, sender_id, receiver_id, type, content, duration, status, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [message.id, message.sender_id, message.receiver_id, message.type,
-       message.content, message.duration, message.status, message.created_at]
-    );
+      // Save to DB
+      await sql.run(
+        `INSERT INTO messages (id, sender_id, receiver_id, type, content, duration, status, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [message.id, message.sender_id, message.receiver_id, message.type,
+         message.content, message.duration, message.status, message.created_at]
+      );
 
-    // Send back to sender (confirmation)
-    socket.emit('chat:message:sent', message);
+      // Send back to sender (confirmation)
+      socket.emit('chat:message:sent', message);
 
-    // Deliver to receiver if online (supports multiple tabs)
-    const sockets = messageOnlineUsers.get(receiverId);
-    if (sockets && sockets.length > 0) {
-      message.status = 'delivered';
-      await sql.run(`UPDATE messages SET status = 'delivered' WHERE id = $1`, [message.id]);
-      emitToUser(receiverId, 'chat:message:new', message);
-      socket.emit('chat:message:status', { id: message.id, status: 'delivered' });
-    } else {
-      // Send push notification
-      sendPushNotification(receiverId, message);
+      // Deliver to receiver if online (supports multiple tabs)
+      const sockets = messageOnlineUsers.get(receiverId);
+      if (sockets && sockets.length > 0) {
+        message.status = 'delivered';
+        await sql.run(`UPDATE messages SET status = 'delivered' WHERE id = $1`, [message.id]);
+        emitToUser(receiverId, 'chat:message:new', message);
+        socket.emit('chat:message:status', { id: message.id, status: 'delivered' });
+      } else {
+        // Send push notification
+        sendPushNotification(receiverId, message);
+      }
+    } catch (e) {
+      console.error('[Socket] chat:message error:', e);
     }
   });
 
   // ---- Read receipts ----
   socket.on('chat:read', async (data) => {
-    const { messageIds } = data;
-    if (!messageIds || !messageIds.length) return;
+    try {
+      const { messageIds } = data;
+      if (!messageIds || !messageIds.length) return;
 
-    const now = new Date().toISOString();
-    const ids = messageIds.map((_, i) => `$${i + 3}`).join(',');
-    await sql.run(
-      `UPDATE messages SET status = 'read', read_at = $1 WHERE id IN (${ids}) AND receiver_id = $2 AND status != 'read'`,
-      [now, ...messageIds, userId]
-    );
+      const now = new Date().toISOString();
+      const ids = messageIds.map((_, i) => `$${i + 3}`).join(',');
+      await sql.run(
+        `UPDATE messages SET status = 'read', read_at = $1 WHERE id IN (${ids}) AND receiver_id = $2 AND status != 'read'`,
+        [now, ...messageIds, userId]
+      );
 
-    const senders = await sql.all(
-      `SELECT DISTINCT sender_id FROM messages WHERE id IN (${ids})`,
-      messageIds
-    );
+      const senders = await sql.all(
+        `SELECT DISTINCT sender_id FROM messages WHERE id IN (${ids})`,
+        messageIds
+      );
 
-    senders.forEach(({ sender_id }) => {
-      emitToUser(sender_id, 'chat:message:read', { messageIds, readAt: now });
-    });
+      senders.forEach(({ sender_id }) => {
+        emitToUser(sender_id, 'chat:message:read', { messageIds, readAt: now });
+      });
+    } catch (e) {
+      console.error('[Socket] chat:read error:', e);
+    }
   });
 
   // ---- Typing indicator ----
   socket.on('chat:typing', () => {
-    const receiverId = userId === 'wss' ? 'syq' : 'wss';
-    emitToUser(receiverId, 'chat:typing', { userId });
+    try {
+      const receiverId = userId === 'wss' ? 'syq' : 'wss';
+      emitToUser(receiverId, 'chat:typing', { userId });
+    } catch (e) {
+      console.error('[Socket] chat:typing error:', e);
+    }
   });
 
   // ---- Recall message ----
   socket.on('chat:message:recall', async (data) => {
-    const { messageId } = data;
-    
-    // Verify the message belongs to this user and is within 2 minutes
-    const messages = await sql.all(`SELECT * FROM messages WHERE id = $1`, [messageId]);
-    if (messages.length === 0) return;
-    
-    const message = messages[0];
-    if (message.sender_id !== userId) return;
-    
-    const createdAt = new Date(message.created_at).getTime();
-    const now = Date.now();
-    const twoMinutes = 2 * 60 * 1000;
-    
-    if (now - createdAt > twoMinutes) {
-      socket.emit('chat:error', { message: '超过2分钟，无法撤回' });
-      return;
+    try {
+      const { messageId } = data;
+      
+      // Verify the message belongs to this user and is within 2 minutes
+      const messages = await sql.all(`SELECT * FROM messages WHERE id = $1`, [messageId]);
+      if (messages.length === 0) return;
+      
+      const message = messages[0];
+      if (message.sender_id !== userId) return;
+      
+      const createdAt = new Date(message.created_at).getTime();
+      const now = Date.now();
+      const twoMinutes = 2 * 60 * 1000;
+      
+      if (now - createdAt > twoMinutes) {
+        socket.emit('chat:error', { message: '超过2分钟，无法撤回' });
+        return;
+      }
+      
+      // Mark as recalled
+      await sql.run(`UPDATE messages SET content = '[该消息已撤回]', type = 'recalled' WHERE id = $1`, [messageId]);
+      
+      // Notify sender
+      socket.emit('chat:message:recalled', { messageId });
+      
+      // Notify receiver if online (supports multiple tabs)
+      const receiverId = message.receiver_id;
+      emitToUser(receiverId, 'chat:message:recalled', { messageId });
+    } catch (e) {
+      console.error('[Socket] chat:message:recall error:', e);
     }
-    
-    // Mark as recalled
-    await sql.run(`UPDATE messages SET content = '[该消息已撤回]', type = 'recalled' WHERE id = $1`, [messageId]);
-    
-    // Notify sender
-    socket.emit('chat:message:recalled', { messageId });
-    
-    // Notify receiver if online (supports multiple tabs)
-    const receiverId = message.receiver_id;
-    emitToUser(receiverId, 'chat:message:recalled', { messageId });
   });
 
   // ---- Delete message ----
   socket.on('chat:message:delete', async (data) => {
-    const { messageId } = data;
-    
-    // Verify the message belongs to this user or is received by this user
-    const messages = await sql.all(`SELECT * FROM messages WHERE id = $1`, [messageId]);
-    if (messages.length === 0) return;
-    
-    const message = messages[0];
-    if (message.sender_id !== userId && message.receiver_id !== userId) return;
-    
-    // Delete the message
-    await sql.run(`DELETE FROM messages WHERE id = $1`, [messageId]);
-    
-    // Notify sender
-    socket.emit('chat:message:deleted', { messageId });
-    
-    // Notify receiver if online and different from sender (supports multiple tabs)
-    if (message.sender_id !== userId) {
-      emitToUser(message.sender_id, 'chat:message:deleted', { messageId });
+    try {
+      const { messageId } = data;
+      
+      // Verify the message belongs to this user or is received by this user
+      const messages = await sql.all(`SELECT * FROM messages WHERE id = $1`, [messageId]);
+      if (messages.length === 0) return;
+      
+      const message = messages[0];
+      if (message.sender_id !== userId && message.receiver_id !== userId) return;
+      
+      // Delete the message
+      await sql.run(`DELETE FROM messages WHERE id = $1`, [messageId]);
+      
+      // Notify sender
+      socket.emit('chat:message:deleted', { messageId });
+      
+      // Notify receiver if online and different from sender (supports multiple tabs)
+      if (message.sender_id !== userId) {
+        emitToUser(message.sender_id, 'chat:message:deleted', { messageId });
+      }
+    } catch (e) {
+      console.error('[Socket] chat:message:delete error:', e);
     }
   });
 
