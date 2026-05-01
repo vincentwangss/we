@@ -265,7 +265,7 @@ async function loadHistory(before) {
     let url = '/api/message/history?limit=30';
     if (before) url += `&before=${encodeURIComponent(before)}`;
 
-    const res = await fetch(url);
+    const res = await fetch(url, { credentials: 'include' });
     console.log('[Chat] History response status:', res.status);
     if (!res.ok) {
       console.error('[Chat] Load history failed:', res.status);
