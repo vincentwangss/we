@@ -177,7 +177,7 @@ function connectSocket() {
     messages.push(msg);
     renderMessage(msg);
     scrollToBottom();
-    playNotificationSound();
+    // playNotificationSound(); // Disabled
     // Auto mark as read if page visible
     if (document.visibilityState === 'visible') {
       markAsRead([msg.id]);
