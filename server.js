@@ -1388,6 +1388,8 @@ app.get('/api/message/history', requireAuth, async (req, res) => {
   const limit = parseInt(req.query.limit) || 200; // 首次加载 200 条
   const userId = req.session.userId;
 
+  console.log('[History] userId:', userId, 'limit:', limit);
+
   let messages;
   if (before) {
     // 加载更多时也包含用户自己发送的消息
@@ -1397,10 +1399,12 @@ app.get('/api/message/history', requireAuth, async (req, res) => {
     );
   } else {
     messages = await sql.all(
-      `SELECT * FROM messages WHERE sender_id = $1 OR receiver_id = $1 OR receiver_id = 'both' ORDER BY created_at ASC LIMIT ${limit}`,
-      [userId]
+      `SELECT * FROM messages WHERE sender_id = $1 OR receiver_id = $1 OR receiver_id = 'both' ORDER BY created_at ASC LIMIT $2`,
+      [userId, limit]
     );
   }
+  
+  console.log('[History] Found messages:', messages.length);
   
   // Transform to API response format
   const transformed = messages.map(m => ({
