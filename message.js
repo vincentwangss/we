@@ -257,9 +257,14 @@ function connectSocket() {
 
 // ==================== HISTORY ====================
 async function loadHistory(before) {
-  if (isLoadingHistory) return;
+  if (isLoadingHistory) {
+    console.log('[Chat] loadHistory skipped - already loading, before:', before);
+    return;
+  }
   isLoadingHistory = true;
   loadingMore.style.display = 'block';
+
+  console.log('[Chat] loadHistory called, before:', before, 'current messages.length:', messages.length);
 
   try {
     let url = '/api/message/history?limit=30';
@@ -274,10 +279,11 @@ async function loadHistory(before) {
       return;
     }
     const data = await res.json();
-    console.log('[Chat] History messages count:', data.messages?.length || 0);
+    console.log('[Chat] History messages count:', data.messages?.length || 0, 'before adding, messages.length:', messages.length);
     const historyMessages = data.messages || [];
 
     if (historyMessages.length === 0) {
+      console.log('[Chat] No history messages, skipping render');
       loadingMore.style.display = 'none';
       isLoadingHistory = false;
       return;
@@ -291,6 +297,8 @@ async function loadHistory(before) {
         messages.push(msg);
       }
     });
+    
+    console.log('[Chat] After adding history, messages.length:', messages.length);
 
     // Sort and render
     messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
