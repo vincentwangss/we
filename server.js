@@ -1389,21 +1389,26 @@ app.post('/api/message/logout', (req, res) => {
 
 // Message history (paginated)
 app.get('/api/message/history', requireAuth, async (req, res) => {
-  const before = req.query.before || null;
-  const limit = parseInt(req.query.limit) || 200;
+  const before = req.query.before || null;  // 用于加载更早的消息
+  const limit = parseInt(req.query.limit) || 30;
   const userId = req.session.userId;
 
   let messages;
   if (before) {
+    // 加载更早的消息（before 之前）
     messages = await sql.all(
       `SELECT * FROM messages WHERE (sender_id = $1 OR receiver_id = $1 OR receiver_id = 'both') AND created_at < $2 ORDER BY created_at DESC LIMIT $3`,
       [userId, before, limit]
     );
+    // 返回倒序（最新的在前）
   } else {
+    // 首次加载：获取最近的 N 条消息（倒序，最新的在前）
     messages = await sql.all(
-      `SELECT * FROM messages WHERE sender_id = $1 OR receiver_id = $1 OR receiver_id = 'both' ORDER BY created_at ASC LIMIT $2`,
+      `SELECT * FROM messages WHERE sender_id = $1 OR receiver_id = $1 OR receiver_id = 'both' ORDER BY created_at DESC LIMIT $2`,
       [userId, limit]
     );
+    // 反转为正序（最老的在前），方便前端追加到列表开头
+    messages = messages.reverse();
   }
   
   const transformed = messages.map(m => ({

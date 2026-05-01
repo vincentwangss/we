@@ -227,6 +227,13 @@ html, body {
   font-size: 13px;
 }
 
+.no-more-history {
+  text-align: center;
+  padding: 12px;
+  color: #bbb;
+  font-size: 12px;
+}
+
 .spinner {
   display: inline-block;
   width: 16px;

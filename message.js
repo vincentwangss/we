@@ -42,6 +42,7 @@ const partnerAvatarEl = $('#partnerAvatar');
 const partnerStatusEl = $('#partnerStatus');
 const messageList = $('#messageList');
 const loadingMore = $('#loadingMore');
+const noMoreHistory = $('#noMoreHistory');
 const msgInput = $('#msgInput');
 const sendBtn = $('#sendBtn');
 const voiceBtn = $('#voiceBtn');
@@ -144,6 +145,10 @@ function initChat() {
 
   loginScreen.style.display = 'none';
   chatScreen.style.display = 'flex';
+
+  // Reset state
+  messages = [];
+  hasMoreHistory = true;
 
   connectSocket();
   loadHistory();
@@ -270,13 +275,16 @@ function connectSocket() {
 }
 
 // ==================== HISTORY ====================
+const PAGE_SIZE = 30;  // 每页加载的消息数量
+let hasMoreHistory = true;  // 是否还有更早的消息
+
 async function loadHistory(before) {
   if (isLoadingHistory) return;
   isLoadingHistory = true;
   loadingMore.style.display = 'block';
 
   try {
-    let url = '/api/message/history?limit=500';
+    let url = `/api/message/history?limit=${PAGE_SIZE}`;
     if (before) url += `&before=${encodeURIComponent(before)}`;
 
     const res = await fetch(url, { credentials: 'include' });
@@ -289,29 +297,36 @@ async function loadHistory(before) {
     const data = await res.json();
     const historyMessages = data.messages || [];
 
+    // 判断是否还有更多消息
+    if (historyMessages.length < PAGE_SIZE) {
+      hasMoreHistory = false;
+    }
+
     if (historyMessages.length === 0) {
+      hasMoreHistory = false;
       loadingMore.style.display = 'none';
+      noMoreHistory.style.display = 'block';
       isLoadingHistory = false;
       return;
     }
 
-    const oldScrollHeight = messageList.scrollHeight;
-
-    // Prepend messages (oldest first from API)
-    historyMessages.forEach(msg => {
-      if (!messages.find(m => m.id === msg.id)) {
-        messages.push(msg);
-      }
-    });
-
-    // Sort and render
-    messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-    renderAllMessages();
-
     if (before) {
-      // Restore scroll position
+      // 加载更早的消息：添加到列表开头
+      const oldScrollHeight = messageList.scrollHeight;
+      
+      historyMessages.forEach(msg => {
+        if (!messages.find(m => m.id === msg.id)) {
+          messages.unshift(msg);  // 添加到数组开头
+        }
+      });
+      
+      renderAllMessages();
+      // 恢复滚动位置
       messageList.scrollTop = messageList.scrollHeight - oldScrollHeight;
     } else {
+      // 首次加载：替换消息列表，滚动到底部
+      messages = historyMessages;
+      renderAllMessages();
       scrollToBottom();
     }
   } catch (err) {
@@ -324,7 +339,7 @@ async function loadHistory(before) {
 
 // Infinite scroll - load more on scroll to top
 messageList.addEventListener('scroll', () => {
-  if (messageList.scrollTop < 50 && !isLoadingHistory && messages.length > 0) {
+  if (messageList.scrollTop < 50 && !isLoadingHistory && hasMoreHistory && messages.length > 0) {
     const oldest = messages[0];
     if (oldest) loadHistory(oldest.created_at);
   }
@@ -1115,6 +1130,7 @@ if (socket) {
     console.log('[Chat] Reconnected');
     // Reload messages on reconnect
     messages = [];
+    hasMoreHistory = true;
     loadHistory();
   });
 
