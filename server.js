@@ -1432,8 +1432,9 @@ app.post('/api/message/read', requireAuth, async (req, res) => {
     );
 
     // Notify sender(s)
+    const senderIds = messageIds.map((_, i) => `$${i + 1}`).join(',');
     const senders = await sql.all(
-      `SELECT DISTINCT sender_id FROM messages WHERE id IN (${ids})`,
+      `SELECT DISTINCT sender_id FROM messages WHERE id IN (${senderIds})`,
       messageIds
     );
 
