@@ -1385,14 +1385,11 @@ app.post('/api/message/logout', (req, res) => {
 // Message history (paginated)
 app.get('/api/message/history', requireAuth, async (req, res) => {
   const before = req.query.before || null;
-  const limit = parseInt(req.query.limit) || 200; // 首次加载 200 条
+  const limit = parseInt(req.query.limit) || 200;
   const userId = req.session.userId;
-
-  console.log('[History] userId:', userId, 'limit:', limit);
 
   let messages;
   if (before) {
-    // 加载更多时也包含用户自己发送的消息
     messages = await sql.all(
       `SELECT * FROM messages WHERE (sender_id = $1 OR receiver_id = $1 OR receiver_id = 'both') AND created_at < $2 ORDER BY created_at DESC LIMIT $3`,
       [userId, before, limit]
@@ -1404,9 +1401,6 @@ app.get('/api/message/history', requireAuth, async (req, res) => {
     );
   }
   
-  console.log('[History] Found messages:', messages.length);
-  
-  // Transform to API response format
   const transformed = messages.map(m => ({
     id: m.id,
     sender_id: m.sender_id,
