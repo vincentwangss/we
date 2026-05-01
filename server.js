@@ -1397,8 +1397,8 @@ app.get('/api/message/history', requireAuth, async (req, res) => {
     );
   } else {
     messages = await sql.all(
-      `SELECT * FROM messages WHERE sender_id = $1 OR receiver_id = $1 OR receiver_id = 'both' ORDER BY created_at ASC LIMIT $2`,
-      [userId, limit]
+      `SELECT * FROM messages WHERE sender_id = $1 OR receiver_id = $1 OR receiver_id = 'both' ORDER BY created_at ASC LIMIT ${limit}`,
+      [userId]
     );
   }
   
