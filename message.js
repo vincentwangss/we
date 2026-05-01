@@ -266,6 +266,7 @@ async function loadHistory(before) {
     if (before) url += `&before=${encodeURIComponent(before)}`;
 
     const res = await fetch(url);
+    console.log('[Chat] History response status:', res.status);
     if (!res.ok) {
       console.error('[Chat] Load history failed:', res.status);
       loadingMore.style.display = 'none';
@@ -273,6 +274,7 @@ async function loadHistory(before) {
       return;
     }
     const data = await res.json();
+    console.log('[Chat] History messages count:', data.messages?.length || 0);
     const historyMessages = data.messages || [];
 
     if (historyMessages.length === 0) {
