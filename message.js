@@ -514,7 +514,7 @@ fileInput.addEventListener('change', async () => {
   try {
     const formData = new FormData();
     formData.append('file', file);
-    const res = await fetch('/api/message/upload', { method: 'POST', body: formData });
+    const res = await fetch('/api/message/upload', { method: 'POST', credentials: 'include', body: formData });
     const data = await res.json();
 
     if (data.success) {
@@ -599,7 +599,7 @@ async function stopAndSendRecording() {
       try {
         const formData = new FormData();
         formData.append('file', blob, `voice_${Date.now()}.webm`);
-        const res = await fetch('/api/message/upload', { method: 'POST', body: formData });
+        const res = await fetch('/api/message/upload', { method: 'POST', credentials: 'include', body: formData });
         const data = await res.json();
 
         if (data.success) {
@@ -709,6 +709,7 @@ async function markAsRead(messageIds) {
   try {
     await fetch('/api/message/read', {
       method: 'POST',
+      credentials: 'include',  // 重要：发送 session cookie
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messageIds })
     });
@@ -745,6 +746,7 @@ async function setupPushNotifications() {
 
     await fetch('/api/message/push/subscribe', {
       method: 'POST',
+      credentials: 'include',  // 重要：发送 session cookie
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ subscription: subscription.toJSON() })
     });
@@ -784,7 +786,7 @@ function playNotificationSound() {
 logoutBtn.addEventListener('click', async () => {
   if (confirm('确定要退出登录吗？')) {
     if (socket) socket.disconnect();
-    await fetch('/api/message/logout', { method: 'POST' });
+    await fetch('/api/message/logout', { method: 'POST', credentials: 'include' });
     location.reload();
   }
 });
