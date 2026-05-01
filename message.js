@@ -276,7 +276,7 @@ async function loadHistory(before) {
   loadingMore.style.display = 'block';
 
   try {
-    let url = '/api/message/history?limit=30';
+    let url = '/api/message/history?limit=500';
     if (before) url += `&before=${encodeURIComponent(before)}`;
 
     const res = await fetch(url, { credentials: 'include' });
