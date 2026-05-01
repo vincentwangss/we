@@ -299,6 +299,11 @@ async function loadHistory(before) {
     });
     
     console.log('[Chat] After adding history, messages.length:', messages.length);
+    
+    // 调试：显示消息类型分布
+    const typeCount = {};
+    messages.forEach(m => { typeCount[m.type] = (typeCount[m.type] || 0) + 1; });
+    console.log('[Chat] Message types:', typeCount);
 
     // Sort and render
     messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
