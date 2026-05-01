@@ -257,21 +257,15 @@ function connectSocket() {
 
 // ==================== HISTORY ====================
 async function loadHistory(before) {
-  if (isLoadingHistory) {
-    console.log('[Chat] loadHistory skipped - already loading, before:', before);
-    return;
-  }
+  if (isLoadingHistory) return;
   isLoadingHistory = true;
   loadingMore.style.display = 'block';
-
-  console.log('[Chat] loadHistory called, before:', before, 'current messages.length:', messages.length);
 
   try {
     let url = '/api/message/history?limit=30';
     if (before) url += `&before=${encodeURIComponent(before)}`;
 
     const res = await fetch(url, { credentials: 'include' });
-    console.log('[Chat] History response status:', res.status);
     if (!res.ok) {
       console.error('[Chat] Load history failed:', res.status);
       loadingMore.style.display = 'none';
@@ -279,11 +273,9 @@ async function loadHistory(before) {
       return;
     }
     const data = await res.json();
-    console.log('[Chat] History messages count:', data.messages?.length || 0, 'before adding, messages.length:', messages.length);
     const historyMessages = data.messages || [];
 
     if (historyMessages.length === 0) {
-      console.log('[Chat] No history messages, skipping render');
       loadingMore.style.display = 'none';
       isLoadingHistory = false;
       return;
@@ -297,13 +289,6 @@ async function loadHistory(before) {
         messages.push(msg);
       }
     });
-    
-    console.log('[Chat] After adding history, messages.length:', messages.length);
-    
-    // 调试：显示消息类型分布
-    const typeCount = {};
-    messages.forEach(m => { typeCount[m.type] = (typeCount[m.type] || 0) + 1; });
-    console.log('[Chat] Message types:', typeCount);
 
     // Sort and render
     messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
@@ -333,7 +318,6 @@ messageList.addEventListener('scroll', () => {
 
 // ==================== RENDERING ====================
 function renderAllMessages() {
-  console.log('[Chat] renderAllMessages called, total:', messages.length);
   // Clear except loading indicator
   const children = Array.from(messageList.children);
   children.forEach(c => { if (c !== loadingMore) c.remove(); });
@@ -347,7 +331,6 @@ function renderAllMessages() {
     }
     renderMessage(msg, false);
   });
-  console.log('[Chat] renderAllMessages done');
 }
 
 function renderMessage(msg, animate = true) {
@@ -356,8 +339,6 @@ function renderMessage(msg, animate = true) {
     renderSystemMessage(msg);
     return;
   }
-
-  console.log('[Chat] renderMessage:', msg.type, msg.content?.substring(0, 50));
   
   const row = document.createElement('div');
   row.className = `msg-row ${msg.sender_id === userId ? 'me' : 'partner'}`;
