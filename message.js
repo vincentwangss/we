@@ -333,6 +333,7 @@ messageList.addEventListener('scroll', () => {
 
 // ==================== RENDERING ====================
 function renderAllMessages() {
+  console.log('[Chat] renderAllMessages called, total:', messages.length);
   // Clear except loading indicator
   const children = Array.from(messageList.children);
   children.forEach(c => { if (c !== loadingMore) c.remove(); });
@@ -346,6 +347,7 @@ function renderAllMessages() {
     }
     renderMessage(msg, false);
   });
+  console.log('[Chat] renderAllMessages done');
 }
 
 function renderMessage(msg, animate = true) {
@@ -355,6 +357,8 @@ function renderMessage(msg, animate = true) {
     return;
   }
 
+  console.log('[Chat] renderMessage:', msg.type, msg.content?.substring(0, 50));
+  
   const row = document.createElement('div');
   row.className = `msg-row ${msg.sender_id === userId ? 'me' : 'partner'}`;
   row.dataset.msgId = msg.id;
