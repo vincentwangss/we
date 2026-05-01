@@ -20,31 +20,9 @@ let usePostgres = false;
 if (process.env.DATABASE_URL) {
   const { Pool } = require('pg');
   
-  // 解析 DATABASE_URL 并转换为 IPv4 兼容格式
+  // 直接使用 DATABASE_URL（支持 Supabase Pooler 地址）
   let connectionString = process.env.DATABASE_URL;
-  try {
-    const url = new URL(connectionString);
-    const hostname = url.hostname;
-    
-    // Supabase pooler 地址格式: postgres.[ref].aws-...pooler.supabase.com:6543
-    // 转换为直接连接格式: db.[ref].supabase.co:5432
-    if (hostname.includes('pooler.supabase.com')) {
-      // 提取 project ref
-      const match = hostname.match(/^postgres\.([^.]+)\./);
-      if (match) {
-        const projectRef = match[1];
-        // 构建直接连接 URL
-        const directUrl = new URL(connectionString);
-        directUrl.hostname = `db.${projectRef}.supabase.co`;
-        directUrl.port = '5432';
-        directUrl.username = 'postgres';
-        connectionString = directUrl.toString();
-        console.log('[DB] Converted to direct connection format');
-      }
-    }
-  } catch (e) {
-    console.log('[DB] URL parsing failed, using original connection string');
-  }
+  console.log('[DB] Connecting to:', new URL(connectionString).hostname);
   
   // 创建连接池并设置连接错误处理
   db = new Pool({
@@ -147,7 +125,8 @@ app.use(session({
   cookie: {
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production'
+    secure: false, // Render uses HTTPS at load balancer level
+    sameSite: 'lax'
   }
 }));
 // 静态文件（排除 index.html）
