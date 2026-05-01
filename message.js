@@ -173,6 +173,20 @@ function connectSocket() {
     updateMessageStatus(msg.id, msg.status);
   });
 
+  socket.on('chat:message:failed', (data) => {
+    console.error('[Chat] Message failed to save:', data);
+    const el = document.querySelector(`[data-msg-id="${data.id}"]`);
+    if (el) {
+      el.classList.add('message-failed');
+      el.querySelector('.message-content')?.setAttribute('contenteditable', 'true');
+      el.querySelector('.message-content')?.focus();
+      // Add retry indicator
+      const retryBtn = el.querySelector('.retry-btn');
+      if (retryBtn) retryBtn.style.display = 'block';
+    }
+    showToast('消息发送失败，请重试', 'error');
+  });
+
   socket.on('chat:message:new', (msg) => {
     messages.push(msg);
     renderMessage(msg);
@@ -368,6 +382,16 @@ function renderMessage(msg, animate = true) {
   bubble.appendChild(meta);
   row.appendChild(avatar);
   row.appendChild(bubble);
+  
+  // Add retry button for sent messages
+  if (msg.sender_id === userId) {
+    const retryBtn = document.createElement('button');
+    retryBtn.className = 'retry-btn';
+    retryBtn.innerHTML = '↻';
+    retryBtn.title = '重试发送';
+    retryBtn.addEventListener('click', () => retrySendMessage(msg));
+    row.appendChild(retryBtn);
+  }
 
   if (animate) {
     row.style.opacity = '0';
@@ -437,14 +461,23 @@ function renderSystemMessage(msg) {
 function updateMessageStatus(msgId, status) {
   const row = document.querySelector(`[data-msg-id="${msgId}"]`);
   if (!row) return;
+  
+  // Update in messages array
+  const msg = messages.find(m => m.id === msgId);
+  if (msg) msg.status = status;
+  
+  // Handle failed state
+  if (status === 'failed') {
+    row.classList.add('message-failed');
+    return;
+  }
+  
+  row.classList.remove('message-failed');
   const statusEl = row.querySelector('.msg-status');
   if (statusEl) {
     statusEl.className = `msg-status ${status}`;
     statusEl.textContent = getStatusIcon(status);
   }
-  // Update in messages array
-  const msg = messages.find(m => m.id === msgId);
-  if (msg) msg.status = status;
 }
 
 function getStatusIcon(status) {
@@ -1095,6 +1128,38 @@ function scrollToBottom() {
   requestAnimationFrame(() => {
     messageList.scrollTop = messageList.scrollHeight;
   });
+}
+
+function showToast(message, type = 'info') {
+  // Remove existing toast
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transition = 'opacity 0.3s';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+function retrySendMessage(msg) {
+  // Remove the failed message from the list
+  const el = document.querySelector(`[data-msg-id="${msg.id}"]`);
+  if (el) el.remove();
+  
+  // Remove from messages array
+  const idx = messages.findIndex(m => m.id === msg.id);
+  if (idx > -1) messages.splice(idx, 1);
+  
+  // Re-send via socket
+  if (socket) {
+    socket.emit('chat:message', { type: msg.type, content: msg.content, duration: msg.duration });
+  }
 }
 
 function formatTime(isoStr) {

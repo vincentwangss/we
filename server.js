@@ -116,16 +116,21 @@ const io = new Server(server, {
 
 // Middleware
 app.use(cors());
+app.set('trust proxy', 1); // 信任 Render 的代理
 app.use(express.json());
 // Session middleware for /message authentication
 app.use(session({
   secret: process.env.SESSION_SECRET || 'couple-chat-secret-2026',
   resave: false,
   saveUninitialized: false,
+  proxy: true,
   cookie: {
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     httpOnly: true,
-    secure: false, // Render uses HTTPS at load balancer level
+    // 在 Render 上，虽然外部是 HTTPS，但 Node.js 内部是 HTTP
+    // 直接用 HTTP 传输 cookie，不需要 secure 标志
+    // secure 会在反向代理层面处理
+    secure: false,
     sameSite: 'lax'
   }
 }));
@@ -1575,8 +1580,9 @@ messageIO.on('connection', async (socket) => {
         created_at: new Date().toISOString()
       };
 
-      // Save to DB
+      // Save to DB - Wait for save to complete before sending confirmation
       console.log('[Socket] Saving message to DB:', message);
+      let saveSuccess = false;
       try {
         await sql.run(
           `INSERT INTO messages (id, sender_id, receiver_id, type, content, duration, status, created_at)
@@ -1585,11 +1591,15 @@ messageIO.on('connection', async (socket) => {
            message.content, message.duration, message.status, message.created_at]
         );
         console.log('[Socket] Message saved successfully');
+        saveSuccess = true;
       } catch (err) {
         console.error('[Socket] Failed to save message:', err);
+        // Notify client of failure
+        socket.emit('chat:message:failed', { id: message.id, error: 'Failed to save message' });
+        return; // Don't proceed if save failed
       }
 
-      // Send back to sender (confirmation)
+      // Only send confirmation after successful save
       socket.emit('chat:message:sent', message);
 
       // Deliver to receiver if online (supports multiple tabs)
