@@ -1119,36 +1119,36 @@ html, body {
 
 /* Quoted message in bubble */
 .bubble-quote {
-  background: rgba(0,0,0,0.05);
+  background: #e8eaff;
   border-left: 3px solid #667eea;
-  padding: 8px 12px;
+  padding: 6px 10px;
   margin-bottom: 6px;
   border-radius: 4px;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .msg-row.me .bubble-quote {
-  background: rgba(255,255,255,0.15);
-  border-left-color: rgba(255,255,255,0.5);
+  background: rgba(102,126,234,0.2);
+  border-left-color: #667eea;
 }
 
 .bubble-quote-sender {
   font-weight: 600;
   color: #667eea;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .msg-row.me .bubble-quote-sender {
-  color: rgba(255,255,255,0.8);
+  color: #fff;
 }
 
 .bubble-quote-content {
-  color: #666;
+  color: #555;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .msg-row.me .bubble-quote-content {
-  color: rgba(255,255,255,0.9);
+  color: rgba(255,255,255,0.95);
 }
