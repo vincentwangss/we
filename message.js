@@ -158,7 +158,12 @@ function initChat() {
 function connectSocket() {
   socket = io('/message', {
     auth: { userId },
-    transports: ['websocket', 'polling']
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionAttempts: 5,      // 最多重连5次
+    reconnectionDelay: 1000,       // 重连间隔1秒
+    reconnectionDelayMax: 5000,   // 最大重连间隔5秒
+    timeout: 10000                // 连接超时10秒
   });
 
   socket.on('connect', () => {

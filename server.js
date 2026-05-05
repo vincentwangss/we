@@ -1531,6 +1531,19 @@ messageIO.on('connection', async (socket) => {
   // 只有首次登录才发送登录系统消息（多标签页或刷新都不再发送）
   if (!hasLoggedIn) {
     try {
+      // 检查数据库中是否已有当天的登录消息（防止服务器重启后重复发送）
+      const today = new Date().toISOString().split('T')[0];
+      const existingLoginMsg = await sql.all(
+        `SELECT id FROM messages WHERE sender_id = 'system' AND type = 'system' AND content LIKE $1 AND created_at >= $2 LIMIT 1`,
+        [`%${userName}%登录%`, today]
+      );
+      
+      if (existingLoginMsg.length > 0) {
+        console.log('[Socket] Login message already exists today for:', userId);
+        loggedInUsers.set(userId, Date.now());
+        return;
+      }
+      
       const now = new Date();
       const loginTime = now.toLocaleString('zh-CN', { 
         year: 'numeric', 
@@ -1729,13 +1742,13 @@ messageIO.on('connection', async (socket) => {
     
     if (remaining.length > 0) {
       messageOnlineUsers.set(userId, remaining);
-      messageIO.emit('presence', { userId, status: 'online', connections: remaining.length });
+      // 多标签页时只记录日志，不发送状态变化（避免频繁的状态更新）
+      console.log('[Socket] User tab closed:', userId, '| Remaining connections:', remaining.length);
     } else {
       messageOnlineUsers.delete(userId);
       messageIO.emit('presence', { userId, status: 'offline', lastSeen: Date.now() });
+      console.log('[Socket] User fully offline:', userId);
     }
-    
-    console.log('[Socket] User disconnected:', userId, '| Remaining connections:', remaining.length);
   });
 });
 
