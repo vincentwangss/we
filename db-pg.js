@@ -29,16 +29,19 @@ async function initDatabase() {
     `);
     
     // Add reply_to column if it doesn't exist (for existing databases)
-    // Try direct ALTER TABLE first (PostgreSQL ignores if column exists)
     try {
-      await client.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to TEXT`);
-      console.log('[PostgreSQL] reply_to column ensured');
-    } catch (e) {
-      if (e.code !== '42703') { // Ignore "column already exists" error
-        console.error('[PostgreSQL] ALTER TABLE error:', e.message);
+      const colCheck = await client.query(`
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_name = 'messages' AND column_name = 'reply_to'
+      `);
+      if (colCheck.rows.length === 0) {
+        await client.query(`ALTER TABLE messages ADD COLUMN reply_to TEXT`);
+        console.log('[PostgreSQL] Added reply_to column');
       } else {
         console.log('[PostgreSQL] reply_to column already exists');
       }
+    } catch (e) {
+      console.error('[PostgreSQL] ALTER TABLE error:', e.message);
     }
       
       CREATE TABLE IF NOT EXISTS chat_messages (
