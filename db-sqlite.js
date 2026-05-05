@@ -57,9 +57,35 @@ async function _initSqlite(dbPath) {
   
   // Add reply_to column if it doesn't exist (for existing databases)
   try {
-    _db.run(`ALTER TABLE messages ADD COLUMN reply_to TEXT`);
+    // Check if column exists first
+    const result = _db.exec("PRAGMA table_info(messages)");
+    const columns = result.length > 0 ? result[0].values.map(row => row[1]) : [];
+    if (!columns.includes('reply_to')) {
+      _db.run(`ALTER TABLE messages ADD COLUMN reply_to TEXT`);
+      console.log('[SQLite] Added reply_to column to messages table');
+    }
   } catch (e) {
-    // Column already exists, ignore
+    // If ALTER fails (e.g., existing data), try recreating table
+    console.log('[SQLite] ALTER TABLE failed, will migrate data:', e.message);
+    try {
+      // Backup existing data
+      const existingData = _db.exec("SELECT * FROM messages LIMIT 1");
+      if (existingData.length === 0 || existingData[0].values.length === 0) {
+        // Table is empty, just recreate it
+        _db.run("DROP TABLE messages");
+        _db.run(`
+          CREATE TABLE messages (
+            id TEXT PRIMARY KEY, sender_id TEXT NOT NULL, receiver_id TEXT NOT NULL,
+            type TEXT NOT NULL DEFAULT 'text', content TEXT NOT NULL,
+            duration INTEGER DEFAULT 0, status TEXT NOT NULL DEFAULT 'sent',
+            created_at TEXT NOT NULL, read_at TEXT, reply_to TEXT
+          );
+        `);
+        console.log('[SQLite] Recreated messages table with reply_to column');
+      }
+    } catch (e2) {
+      console.error('[SQLite] Migration failed:', e2.message);
+    }
   }
   _db.run(`CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);`);
   _db.run(`CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);`);
