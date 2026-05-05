@@ -41,7 +41,8 @@ async function migrate() {
         duration INTEGER DEFAULT 0,
         status TEXT NOT NULL DEFAULT 'sent',
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        read_at TIMESTAMP
+        read_at TIMESTAMP,
+        reply_to TEXT
       );
       
       CREATE TABLE IF NOT EXISTS chat_messages (

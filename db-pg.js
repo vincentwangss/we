@@ -23,8 +23,17 @@ async function initDatabase() {
         duration INTEGER DEFAULT 0,
         status TEXT NOT NULL DEFAULT 'sent',
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        read_at TIMESTAMP
+        read_at TIMESTAMP,
+        reply_to TEXT
       );
+    `);
+    
+    // Add reply_to column if it doesn't exist (for existing databases)
+    try {
+      await client.query(`ALTER TABLE messages ADD COLUMN reply_to TEXT`);
+    } catch (e) {
+      // Column already exists, ignore
+    }
       
       CREATE TABLE IF NOT EXISTS chat_messages (
         id TEXT PRIMARY KEY,

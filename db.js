@@ -21,7 +21,8 @@ function initDB(dbPath) {
       duration INTEGER DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'sent',
       created_at TEXT NOT NULL,
-      read_at TEXT
+      read_at TEXT,
+      reply_to TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);
     CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);

@@ -1419,7 +1419,8 @@ app.get('/api/message/history', requireAuth, async (req, res) => {
     content: m.content,
     duration: m.duration,
     status: m.status,
-    created_at: m.created_at
+    created_at: m.created_at,
+    reply_to: m.reply_to ? (typeof m.reply_to === 'string' ? JSON.parse(m.reply_to) : m.reply_to) : null
   }));
   
   res.json({ messages: transformed });
@@ -1583,7 +1584,7 @@ messageIO.on('connection', async (socket) => {
   // ---- Chat message ----
   socket.on('chat:message', async (data) => {
     try {
-      const { type, content, duration } = data;
+      const { type, content, duration, reply_to } = data;
       const receiverId = userId === 'wss' ? 'syq' : 'wss';
       const messageId = uuidv4();
 
@@ -1595,18 +1596,21 @@ messageIO.on('connection', async (socket) => {
         content,
         duration: duration || 0,
         status: 'sent',
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        reply_to: reply_to || null
       };
 
       // Save to DB - Wait for save to complete before sending confirmation
       console.log('[Socket] Saving message to DB:', message);
       let saveSuccess = false;
       try {
+        // Store reply_to as JSON string
+        const replyToJson = message.reply_to ? JSON.stringify(message.reply_to) : null;
         await sql.run(
-          `INSERT INTO messages (id, sender_id, receiver_id, type, content, duration, status, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          `INSERT INTO messages (id, sender_id, receiver_id, type, content, duration, status, created_at, reply_to)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
           [message.id, message.sender_id, message.receiver_id, message.type,
-           message.content, message.duration, message.status, message.created_at]
+           message.content, message.duration, message.status, message.created_at, replyToJson]
         );
         console.log('[Socket] Message saved successfully');
         saveSuccess = true;

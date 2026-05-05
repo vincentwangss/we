@@ -51,9 +51,16 @@ async function _initSqlite(dbPath) {
       id TEXT PRIMARY KEY, sender_id TEXT NOT NULL, receiver_id TEXT NOT NULL,
       type TEXT NOT NULL DEFAULT 'text', content TEXT NOT NULL,
       duration INTEGER DEFAULT 0, status TEXT NOT NULL DEFAULT 'sent',
-      created_at TEXT NOT NULL, read_at TEXT
+      created_at TEXT NOT NULL, read_at TEXT, reply_to TEXT
     );
   `);
+  
+  // Add reply_to column if it doesn't exist (for existing databases)
+  try {
+    _db.run(`ALTER TABLE messages ADD COLUMN reply_to TEXT`);
+  } catch (e) {
+    // Column already exists, ignore
+  }
   _db.run(`CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);`);
   _db.run(`CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);`);
   _db.run(`CREATE INDEX IF NOT EXISTS idx_messages_status ON messages(status);`);

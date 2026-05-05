@@ -15,6 +15,7 @@ let recordingSeconds = 0;
 let currentPlayingAudio = null;
 let typingTimeout = null;
 let emojiPickerVisible = false;
+let currentQuote = null; // 当前引用的消息
 
 const ACCOUNTS_INFO = {
   husband: { name: 'wss', avatar: '🧑' },
@@ -63,6 +64,8 @@ const searchBar = $('#searchBar') || null;
 const searchInput = $('#searchInput') || null;
 const searchResults = $('#searchResults') || null;
 const contextMenu = $('#contextMenu') || null;
+const quotePreview = $('#quotePreview') || null;
+const quoteContent = $('#quoteContent') || null;
 
 // ==================== LOGIN ====================
 let selectedAccount = '';
@@ -430,13 +433,49 @@ function renderMessage(msg, animate = true) {
 }
 
 function renderTextBubble(bubble, msg) {
+  // Render quote if exists
+  if (msg.reply_to) {
+    const quote = document.createElement('div');
+    quote.className = 'bubble-quote';
+    const quoteSender = msg.reply_to.sender_id === userId ? '我' : partnerName;
+    quote.innerHTML = `
+      <div class="bubble-quote-sender">${quoteSender}</div>
+      <div class="bubble-quote-content">${formatQuoteContent(msg.reply_to)}</div>
+    `;
+    bubble.appendChild(quote);
+  }
+  
   const text = document.createElement('div');
   text.className = 'bubble-text';
   text.textContent = msg.content;
   bubble.appendChild(text);
 }
 
+function formatQuoteContent(replyTo) {
+  if (replyTo.type === 'text') {
+    const content = replyTo.content.length > 50 ? replyTo.content.substring(0, 50) + '...' : replyTo.content;
+    return escapeHtml(content);
+  } else if (replyTo.type === 'image') {
+    return '[图片]';
+  } else if (replyTo.type === 'voice') {
+    return '[语音消息]';
+  }
+  return '[消息]';
+}
+
 function renderImageBubble(bubble, msg) {
+  // Render quote if exists
+  if (msg.reply_to) {
+    const quote = document.createElement('div');
+    quote.className = 'bubble-quote';
+    const quoteSender = msg.reply_to.sender_id === userId ? '我' : partnerName;
+    quote.innerHTML = `
+      <div class="bubble-quote-sender">${quoteSender}</div>
+      <div class="bubble-quote-content">${formatQuoteContent(msg.reply_to)}</div>
+    `;
+    bubble.appendChild(quote);
+  }
+  
   const imgWrap = document.createElement('div');
   imgWrap.className = 'bubble-image';
   const img = document.createElement('img');
@@ -451,6 +490,18 @@ function renderImageBubble(bubble, msg) {
 }
 
 function renderVoiceBubble(bubble, msg) {
+  // Render quote if exists
+  if (msg.reply_to) {
+    const quote = document.createElement('div');
+    quote.className = 'bubble-quote';
+    const quoteSender = msg.reply_to.sender_id === userId ? '我' : partnerName;
+    quote.innerHTML = `
+      <div class="bubble-quote-sender">${quoteSender}</div>
+      <div class="bubble-quote-content">${formatQuoteContent(msg.reply_to)}</div>
+    `;
+    bubble.appendChild(quote);
+  }
+  
   const voice = document.createElement('div');
   voice.className = 'bubble-voice';
   voice.innerHTML = `
@@ -1030,6 +1081,84 @@ function deleteMessage() {
   socket.emit('chat:message:delete', { messageId: msg.id });
   hideContextMenu();
 }
+
+// ==================== QUOTE/REPLY ====================
+function quoteMessage() {
+  if (!contextMenuTarget) return;
+  
+  const msg = contextMenuTarget;
+  currentQuote = msg;
+  
+  // Update quote preview
+  if (quotePreview && quoteContent) {
+    const senderName = msg.sender_id === userId ? '我' : partnerName;
+    const previewText = msg.type === 'text' ? msg.content : 
+                        msg.type === 'image' ? '[图片]' : 
+                        msg.type === 'voice' ? '[语音消息]' : '[消息]';
+    quoteContent.innerHTML = `<span class="quote-sender">${senderName}：</span>${escapeHtml(previewText)}`;
+    quotePreview.style.display = 'block';
+  }
+  
+  // Focus input
+  msgInput.focus();
+  hideContextMenu();
+}
+
+function cancelQuote() {
+  currentQuote = null;
+  if (quotePreview) {
+    quotePreview.style.display = 'none';
+  }
+}
+
+// Helper to escape HTML
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Update sendTextMessage to include quote
+const originalSendTextMessage = sendTextMessage;
+sendTextMessage = function() {
+  const text = msgInput.value.trim();
+  if (!text || !socket) return;
+
+  const msg = {
+    id: 'temp-' + Date.now(),
+    sender_id: userId,
+    receiver_id: partnerId,
+    type: 'text',
+    content: text,
+    duration: 0,
+    status: 'sent',
+    created_at: new Date().toISOString(),
+    reply_to: currentQuote ? {
+      id: currentQuote.id,
+      sender_id: currentQuote.sender_id,
+      content: currentQuote.content,
+      type: currentQuote.type
+    } : null
+  };
+
+  messages.push(msg);
+  renderMessage(msg);
+  scrollToBottom();
+
+  socket.emit('chat:message', { 
+    type: 'text', 
+    content: text,
+    reply_to: msg.reply_to
+  });
+
+  // Clear quote after sending
+  cancelQuote();
+
+  msgInput.value = '';
+  msgInput.style.height = 'auto';
+  sendBtn.style.display = 'none';
+  voiceBtn.style.display = 'block';
+};
 
 // Toast notification
 function showToast(message, duration = 2000) {

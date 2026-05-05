@@ -70,6 +70,14 @@
 
     <!-- Input Bar -->
     <div class="input-bar" id="inputBar">
+      <!-- Quote Reply Preview -->
+      <div id="quotePreview" class="quote-preview" style="display:none">
+        <div class="quote-header">
+          <span class="quote-label">引用</span>
+          <button class="quote-close-btn" onclick="cancelQuote()">✕</button>
+        </div>
+        <div class="quote-content" id="quoteContent"></div>
+      </div>
       <button class="input-btn" id="voiceBtn" title="语音">🎤</button>
       <div class="input-wrapper">
         <textarea id="msgInput" rows="1" placeholder="消息..." autofocus></textarea>
@@ -116,6 +124,9 @@
     <div id="contextMenu" class="context-menu">
       <div class="context-menu-item" onclick="copyMessageText()">
         <span>📋</span> 复制
+      </div>
+      <div class="context-menu-item" onclick="quoteMessage()">
+        <span>💬</span> 引用
       </div>
       <div class="context-menu-item" onclick="forwardMessage()">
         <span>🔄</span> 转发
