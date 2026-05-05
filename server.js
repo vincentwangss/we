@@ -57,12 +57,14 @@ if (process.env.DATABASE_URL) {
   db.query('SELECT 1').then(async () => {
     console.log('[DB] PostgreSQL connection successful');
     // 初始化数据库表结构
-    const { initDatabase } = require('./db-pg');
     try {
+      const { initDatabase } = require('./db-pg');
+      console.log('[DB] initDatabase function loaded');
       await initDatabase();
+      console.log('[DB] initDatabase completed');
       dbWaitReady = Promise.resolve();
     } catch (e) {
-      console.error('[DB] initDatabase error:', e.message);
+      console.error('[DB] initDatabase error:', e.code, e.message, e.stack);
       dbWaitReady = Promise.resolve();
     }
   }).catch((err) => {
