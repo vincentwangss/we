@@ -50,13 +50,21 @@ if (process.env.DATABASE_URL) {
   });
   
   usePostgres = true;
-  dbWaitReady = Promise.resolve();
   console.log('[DB] Using PostgreSQL (Supabase)');
   console.log('[DB] DATABASE_URL:', process.env.DATABASE_URL ? 'SET' : 'NOT SET');
   
-  // 测试连接并在失败时回退
-  db.query('SELECT 1').then(() => {
+  // 测试连接并初始化数据库
+  db.query('SELECT 1').then(async () => {
     console.log('[DB] PostgreSQL connection successful');
+    // 初始化数据库表结构
+    const { initDatabase } = require('./db-pg');
+    try {
+      await initDatabase();
+      dbWaitReady = Promise.resolve();
+    } catch (e) {
+      console.error('[DB] initDatabase error:', e.message);
+      dbWaitReady = Promise.resolve();
+    }
   }).catch((err) => {
     console.log('[DB] PostgreSQL connection failed:', err.code || err.message);
     const isConnectionError = 
@@ -68,6 +76,8 @@ if (process.env.DATABASE_URL) {
     if (isConnectionError) {
       console.log('[DB] Falling back to SQLite...');
       initSQLite();
+    } else {
+      dbWaitReady = Promise.resolve();
     }
   });
   
