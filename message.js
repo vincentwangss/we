@@ -433,6 +433,7 @@ function renderMessage(msg, animate = true) {
 
 function renderTextBubble(bubble, msg) {
   // Render quote if exists
+  console.log('[renderTextBubble] msg.reply_to:', msg.reply_to, typeof msg.reply_to);
   if (msg.reply_to) {
     const quote = document.createElement('div');
     quote.className = 'bubble-quote';
@@ -442,6 +443,7 @@ function renderTextBubble(bubble, msg) {
       <div class="bubble-quote-content">${formatQuoteContent(msg.reply_to)}</div>
     `;
     bubble.appendChild(quote);
+    console.log('[renderTextBubble] Quote added, sender:', quoteSender);
   }
   
   const text = document.createElement('div');
