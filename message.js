@@ -15,7 +15,6 @@ let recordingSeconds = 0;
 let currentPlayingAudio = null;
 let typingTimeout = null;
 let emojiPickerVisible = false;
-let currentQuote = null; // 当前引用的消息
 
 const ACCOUNTS_INFO = {
   husband: { name: 'wss', avatar: '🧑' },
@@ -577,7 +576,44 @@ msgInput.addEventListener('keydown', (e) => {
   }
 });
 
-sendBtn.addEventListener('click', sendTextMessage);
+// ==================== QUOTE/REPLY ====================
+let currentQuote = null; // 当前引用的消息
+
+function quoteMessage() {
+  if (!contextMenuTarget) return;
+  
+  const msg = contextMenuTarget;
+  currentQuote = msg;
+  
+  // Update quote preview
+  if (quotePreview && quoteContent) {
+    const senderName = msg.sender_id === userId ? '我' : partnerName;
+    const previewText = msg.type === 'text' ? msg.content : 
+                        msg.type === 'image' ? '[图片]' : 
+                        msg.type === 'voice' ? '[语音消息]' : '[消息]';
+    quoteContent.innerHTML = `<span class="quote-sender">${senderName}：</span>${escapeHtml(previewText)}`;
+    quotePreview.style.display = 'block';
+  }
+  
+  // Focus input
+  msgInput.focus();
+  hideContextMenu();
+}
+
+function cancelQuote() {
+  currentQuote = null;
+  if (quotePreview) {
+    quotePreview.style.display = 'none';
+  }
+}
+
+// Helper to escape HTML
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
 
 function sendTextMessage() {
   const text = msgInput.value.trim();
@@ -591,20 +627,35 @@ function sendTextMessage() {
     content: text,
     duration: 0,
     status: 'sent',
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    reply_to: currentQuote ? {
+      id: currentQuote.id,
+      sender_id: currentQuote.sender_id,
+      content: currentQuote.content,
+      type: currentQuote.type
+    } : null
   };
 
   messages.push(msg);
   renderMessage(msg);
   scrollToBottom();
 
-  socket.emit('chat:message', { type: 'text', content: text });
+  socket.emit('chat:message', { 
+    type: 'text', 
+    content: text,
+    reply_to: msg.reply_to
+  });
+
+  // Clear quote after sending
+  cancelQuote();
 
   msgInput.value = '';
   msgInput.style.height = 'auto';
   sendBtn.style.display = 'none';
   voiceBtn.style.display = 'block';
 }
+
+sendBtn.addEventListener('click', sendTextMessage);
 
 // ==================== IMAGE ====================
 imgBtn.addEventListener('click', () => fileInput.click());
@@ -1082,114 +1133,6 @@ function deleteMessage() {
   hideContextMenu();
 }
 
-// ==================== QUOTE/REPLY ====================
-function quoteMessage() {
-  if (!contextMenuTarget) return;
-  
-  const msg = contextMenuTarget;
-  currentQuote = msg;
-  
-  // Update quote preview
-  if (quotePreview && quoteContent) {
-    const senderName = msg.sender_id === userId ? '我' : partnerName;
-    const previewText = msg.type === 'text' ? msg.content : 
-                        msg.type === 'image' ? '[图片]' : 
-                        msg.type === 'voice' ? '[语音消息]' : '[消息]';
-    quoteContent.innerHTML = `<span class="quote-sender">${senderName}：</span>${escapeHtml(previewText)}`;
-    quotePreview.style.display = 'block';
-  }
-  
-  // Focus input
-  msgInput.focus();
-  hideContextMenu();
-}
-
-function cancelQuote() {
-  currentQuote = null;
-  if (quotePreview) {
-    quotePreview.style.display = 'none';
-  }
-}
-
-// Helper to escape HTML
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-// Update sendTextMessage to include quote
-const originalSendTextMessage = sendTextMessage;
-sendTextMessage = function() {
-  const text = msgInput.value.trim();
-  if (!text || !socket) return;
-
-  const msg = {
-    id: 'temp-' + Date.now(),
-    sender_id: userId,
-    receiver_id: partnerId,
-    type: 'text',
-    content: text,
-    duration: 0,
-    status: 'sent',
-    created_at: new Date().toISOString(),
-    reply_to: currentQuote ? {
-      id: currentQuote.id,
-      sender_id: currentQuote.sender_id,
-      content: currentQuote.content,
-      type: currentQuote.type
-    } : null
-  };
-
-  messages.push(msg);
-  renderMessage(msg);
-  scrollToBottom();
-
-  socket.emit('chat:message', { 
-    type: 'text', 
-    content: text,
-    reply_to: msg.reply_to
-  });
-
-  // Clear quote after sending
-  cancelQuote();
-
-  msgInput.value = '';
-  msgInput.style.height = 'auto';
-  sendBtn.style.display = 'none';
-  voiceBtn.style.display = 'block';
-};
-
-// Toast notification
-function showToast(message, duration = 2000) {
-  const existing = document.querySelector('.toast-notification');
-  if (existing) existing.remove();
-
-  const toast = document.createElement('div');
-  toast.className = 'toast-notification';
-  toast.textContent = message;
-  toast.style.cssText = `
-    position: fixed;
-    bottom: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.8);
-    color: #fff;
-    padding: 10px 20px;
-    border-radius: 20px;
-    font-size: 14px;
-    z-index: 1000;
-    animation: fadeIn 0.2s ease-out;
-  `;
-  document.body.appendChild(toast);
-
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transition = 'opacity 0.2s';
-    setTimeout(() => toast.remove(), 200);
-  }, duration);
-}
-
 // Close context menu on click outside
 document.addEventListener('click', (e) => {
   if (contextMenu && !contextMenu.contains(e.target)) {
@@ -1197,14 +1140,28 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// Add long press for mobile
+// Context menu: Right-click on Windows/Mac, Long-press on mobile
 let longPressTimer = null;
 let longPressTarget = null;
 
-messageList?.addEventListener('touchstart', (e) => {
-  const target = e.target.closest('.msg-bubble');
+// Right-click context menu (Windows/Mac)
+messageList?.addEventListener('contextmenu', (e) => {
+  const target = e.target.closest('.msg-row');
   if (target) {
-    longPressTarget = target.closest('.msg-row');
+    e.preventDefault();
+    const msgId = target.dataset.msgId;
+    const msg = messages.find(m => m.id === msgId);
+    if (msg) {
+      showContextMenu(e, msg);
+    }
+  }
+});
+
+// Long press for mobile
+messageList?.addEventListener('touchstart', (e) => {
+  const target = e.target.closest('.msg-row');
+  if (target) {
+    longPressTarget = target;
     longPressTimer = setTimeout(() => {
       if (longPressTarget) {
         const msgId = longPressTarget.dataset.msgId;

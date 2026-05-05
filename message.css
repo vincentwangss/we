@@ -1060,15 +1060,16 @@ html, body {
   background: #f0f0f5;
   border-radius: 8px;
   margin: 4px 8px 0 8px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   position: relative;
+  min-height: 50px;
 }
 
 .quote-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .quote-label {
@@ -1080,40 +1081,47 @@ html, body {
 .quote-close-btn {
   background: none;
   border: none;
-  font-size: 14px;
+  font-size: 16px;
   color: #999;
   cursor: pointer;
   padding: 2px 6px;
   line-height: 1;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
 }
 
 .quote-close-btn:hover {
   color: #666;
+  background: rgba(0,0,0,0.05);
 }
 
 .quote-content {
-  font-size: 13px;
+  font-size: 14px;
   color: #666;
-  line-height: 1.4;
+  line-height: 1.5;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
-  max-height: 40px;
+  max-height: 60px;
 }
 
 .quote-sender {
   color: #667eea;
-  font-weight: 500;
-  margin-right: 4px;
+  font-weight: 600;
+  margin-right: 6px;
 }
 
 /* Quoted message in bubble */
 .bubble-quote {
   background: rgba(0,0,0,0.05);
   border-left: 3px solid #667eea;
-  padding: 6px 10px;
+  padding: 8px 12px;
   margin-bottom: 6px;
   border-radius: 4px;
   font-size: 13px;
@@ -1127,7 +1135,7 @@ html, body {
 .bubble-quote-sender {
   font-weight: 600;
   color: #667eea;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .msg-row.me .bubble-quote-sender {
