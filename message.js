@@ -177,6 +177,7 @@ function connectSocket() {
   });
 
   socket.on('chat:message:sent', (msg) => {
+    console.log('[Chat] message:sent received, reply_to:', msg.reply_to);
     // Update the optimistic message with server data
     const el = document.querySelector(`[data-msg-id="${msg.id}"]`);
     if (el) {
@@ -433,7 +434,7 @@ function renderMessage(msg, animate = true) {
 
 function renderTextBubble(bubble, msg) {
   // Render quote if exists
-  console.log('[renderTextBubble] msg.reply_to:', msg.reply_to, typeof msg.reply_to);
+  console.log('[renderTextBubble] checking reply_to, msg.reply_to =', msg.reply_to);
   if (msg.reply_to) {
     const quote = document.createElement('div');
     quote.className = 'bubble-quote';
@@ -443,7 +444,7 @@ function renderTextBubble(bubble, msg) {
       <div class="bubble-quote-content">${formatQuoteContent(msg.reply_to)}</div>
     `;
     bubble.appendChild(quote);
-    console.log('[renderTextBubble] Quote added, sender:', quoteSender);
+    console.log('[renderTextBubble] quote element added to bubble');
   }
   
   const text = document.createElement('div');
